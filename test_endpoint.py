@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 """
 Test script for the Modal Coding Agent endpoint
 """
@@ -49,8 +58,9 @@ def test_endpoint(
     
     start_time = time.time()
     
-    if verbose:
-        print(f"Testing endpoint: {base_url}")
+    logger.info(f"Testing endpoint: {base_url}")
+        if verbose:
+            print(f"Testing endpoint: {base_url}")
         print(f"Repository: {repo_url}")
         print(f"Prompt: {prompt}")
         print(f"Timeout: {timeout}s")
@@ -58,6 +68,7 @@ def test_endpoint(
     
     try:
         # Test health check first
+        logger.info("Testing health check endpoint")
         if verbose:
             print("Testing health check...")
         
@@ -81,6 +92,7 @@ def test_endpoint(
             "prompt": prompt
         }
         
+        logger.info("Starting SSE stream connection")
         if verbose:
             print(f"\nStarting SSE stream...")
         
@@ -213,6 +225,7 @@ def test_endpoint(
         return results
     except Exception as e:
         results["error"] = str(e)
+        logger.error(f"Test failed with error: {str(e)}", exc_info=True)
         if verbose:
             print(f"Error: {e}")
         return results
