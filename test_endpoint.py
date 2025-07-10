@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+
+# Configure logging
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 """
 Test script for the Modal Coding Agent endpoint
 """
@@ -53,6 +63,7 @@ def test_endpoint(
     
     try:
         # Test health check first
+        logger.info(f"Testing health check endpoint at {base_url}/")
         health_response = requests.get(f"{base_url}/", timeout=10)
         results["health_check"] = health_response.status_code == 200
         
@@ -77,7 +88,9 @@ def test_endpoint(
         )
         
         if response.status_code != 200:
-            results["error"] = f"HTTP {response.status_code}: {response.text}"
+            error_msg = f"HTTP {response.status_code}: {response.text}"
+            logger.error(error_msg)
+            results["error"] = error_msg
             if verbose:
                 print(f"Error: {response.status_code}")
                 print(f"Response: {response.text}")
@@ -90,7 +103,9 @@ def test_endpoint(
         for line in response.iter_lines(decode_unicode=True, chunk_size=1):
             # Check timeout
             if time.time() - stream_start > timeout:
-                results["error"] = f"Stream timeout after {timeout}s"
+                error_msg = f"Stream timeout after {timeout}s"
+                logger.error(error_msg)
+                results["error"] = error_msg
                 if verbose:
                     print(f"[TIMEOUT] Stream exceeded {timeout}s")
                 return results
@@ -187,7 +202,7 @@ def _save_results(results: dict, filename: str = "test_results.json"):
             json.dump(results, f, indent=2)
         print(f"Results saved to {filename}")
     except Exception as e:
-        print(f"Could not save results: {e}")
+        logger.error(f"Could not save results: {e}")
 
 def main():
     if len(sys.argv) < 2:
