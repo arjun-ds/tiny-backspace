@@ -1,4 +1,14 @@
 #!/usr/bin/env python3
+
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 """
 Test script for the Modal Coding Agent endpoint
 """
@@ -50,11 +60,11 @@ def test_endpoint(
     start_time = time.time()
     
     if verbose:
-        print(f"Testing endpoint: {base_url}")
-        print(f"Repository: {repo_url}")
-        print(f"Prompt: {prompt}")
-        print(f"Timeout: {timeout}s")
-        print("-" * 50)
+        logger.info(f"Testing endpoint: {base_url}")
+        logger.info(f"Repository: {repo_url}")
+        logger.info(f"Prompt: {prompt}")
+        logger.info(f"Timeout: {timeout}s")
+        logger.info("-" * 50)
     
     try:
         # Test health check first
@@ -65,11 +75,11 @@ def test_endpoint(
         results["health_check"] = health_response.status_code == 200
         
         if verbose:
-            print(f"Health check: {health_response.status_code}")
+            logger.info(f"Health check: {health_response.status_code}")
             if health_response.status_code == 200:
-                print(f"Response: {health_response.json()}")
+                logger.info(f"Response: {health_response.json()}")
             else:
-                print(f"Error response: {health_response.text}")
+                logger.error(f"Error response: {health_response.text}")
         
         if not results["health_check"]:
             results["error"] = f"Health check failed: {health_response.status_code}"
@@ -82,7 +92,7 @@ def test_endpoint(
         }
         
         if verbose:
-            print(f"\nStarting SSE stream...")
+            logger.info("Starting SSE stream...")
         
         response = requests.post(
             f"{base_url}/code",
@@ -108,7 +118,7 @@ def test_endpoint(
             if time.time() - stream_start > timeout:
                 results["error"] = f"Stream timeout after {timeout}s"
                 if verbose:
-                    print(f"[TIMEOUT] Stream exceeded {timeout}s")
+                    logger.warning(f"Stream exceeded {timeout}s")
                 return results
                 
             if line.startswith("data: "):
@@ -121,10 +131,10 @@ def test_endpoint(
                     if event_type == "status":
                         stage = data.get("stage", "")
                         if verbose:
-                            print(f"[{stage.upper()}] {message}")
+                            logger.info(f"[{stage.upper()}] {message}")
                             # Show additional details if available
                             if "details" in data:
-                                print(f"    Details: {data['details']}")
+                                logger.info(f"    Details: {data['details']}")
                     elif event_type == "error":
                         results["error"] = message
                         if verbose:
