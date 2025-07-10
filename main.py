@@ -23,6 +23,7 @@ async def root():
     """Health check endpoint"""
     return {"status": "ok", "service": "Backspace Coding Agent"}
 
+# TODO: Improve streaming experience for this endpoint 
 @web_app.post("/code")
 async def create_code_changes(request: CodeRequest):
     """Main endpoint that streams the coding process"""
