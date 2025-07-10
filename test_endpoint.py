@@ -190,6 +190,21 @@ def _save_results(results: dict, filename: str = "test_results.json"):
         print(f"Could not save results: {e}")
 
 def main():
+    """Main entry point for the test script.
+    
+    Parses command line arguments and runs the endpoint test with specified parameters.
+    Supports various options for customizing the test behavior including:
+    - Custom repository URL
+    - Custom prompt text
+    - Timeout duration
+    - Verbosity levels
+    - Result saving
+    - Authentication testing
+    
+    Exit codes:
+        0: Test completed successfully
+        1: Test failed or invalid arguments
+    """
     if len(sys.argv) < 2:
         print("Usage: python test_endpoint.py <base_url> [options]")
         print("Options:")

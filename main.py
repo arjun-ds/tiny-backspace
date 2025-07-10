@@ -75,5 +75,13 @@ async def create_code_changes(request: CodeRequest):
 )
 @modal.asgi_app()
 def modal_asgi():
-    """Deploy FastAPI app on Modal"""
+    """Deploy FastAPI app on Modal.
+    
+    This function configures and deploys the FastAPI application on Modal's serverless platform.
+    It sets up the required environment, installs dependencies, and configures secrets for
+    GitHub and Anthropic API access.
+    
+    Returns:
+        FastAPI: The configured FastAPI application instance ready for deployment
+    """
     return web_app
