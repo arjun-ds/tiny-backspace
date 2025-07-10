@@ -190,6 +190,22 @@ def _save_results(results: dict, filename: str = "test_results.json"):
         print(f"Could not save results: {e}")
 
 def main():
+    """Command-line interface for testing the coding agent endpoint.
+    
+    Provides various options for testing different aspects of the service:
+    - Custom repository URL and prompt
+    - Timeout configuration
+    - Verbosity levels
+    - Result saving
+    - Authentication testing
+    
+    Usage example:
+        python test_endpoint.py https://your-app.modal.run --repo https://github.com/owner/repo
+    
+    Exit codes:
+        0: Test succeeded
+        1: Test failed or invalid arguments
+    """
     if len(sys.argv) < 2:
         print("Usage: python test_endpoint.py <base_url> [options]")
         print("Options:")

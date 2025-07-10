@@ -35,6 +35,20 @@ async def root():
 
 @web_app.post("/code")
 async def create_code_changes(request: CodeRequest):
+    """Endpoint to initiate code changes on a GitHub repository.
+    
+    Takes a repository URL and natural language prompt describing desired changes.
+    Streams back progress updates as Server-Sent Events (SSE).
+
+    Args:
+        request (CodeRequest): Contains repoUrl and prompt fields
+
+    Returns:
+        StreamingResponse: SSE stream of progress updates
+
+    Raises:
+        HTTPException: If repository URL is invalid or non-GitHub
+    """
     """Main endpoint that streams the coding process"""
     
     # Import agent inside the function to avoid issues during deployment

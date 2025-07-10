@@ -37,7 +37,17 @@ else:
     tracer = None
 
 class CodingAgent:
-    """Handles code analysis and modification"""
+    """Handles code analysis and modification using AI assistance.
+
+    This class implements the core functionality for analyzing GitHub repositories,
+    making code changes using Claude AI, and creating pull requests with improvements.
+    It supports both simple file modifications and interactive multi-step changes.
+
+    Attributes:
+        github_token (str): GitHub authentication token for repo access
+        github (Github): PyGithub client instance
+        anthropic_client (anthropic.Anthropic): Claude AI client instance
+    """
     
     def __init__(self, github_token: str):
         self.github_token = github_token
@@ -54,6 +64,26 @@ class CodingAgent:
         repo_url: str, 
         prompt: str
     ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Process a GitHub repository to implement requested code changes.
+
+        This is the main entry point for the code modification workflow. It:
+        1. Clones the repository
+        2. Analyzes the code structure
+        3. Makes AI-assisted modifications
+        4. Creates a branch and commits changes
+        5. Pushes changes and creates a PR
+
+        Args:
+            repo_url: URL of the GitHub repository to modify
+            prompt: Natural language description of changes to make
+
+        Yields:
+            Dict containing progress updates and status messages
+            Format: {"type": str, "message": str, ...}
+
+        Raises:
+            Exception: If repository processing fails at any stage
+        """
         """
         Process a repository and yield status updates
         """
