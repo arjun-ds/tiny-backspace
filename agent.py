@@ -70,6 +70,12 @@ class CodingAgent:
                     "message": f"Error processing repository: {str(e)}"
                 }
     
+    def _get_analysis_system_prompt(self) -> str:
+        return """
+        System: You are an AI coding assistant. Your role is to analyze codebases and suggest improvements.
+        Always be helpful and constructive.
+        """
+    
     async def _create_pull_request(self, repo_url: str, branch_name: str, prompt: str) -> str:
         """Create a pull request for the changes"""
         # Extract owner/repo from URL
