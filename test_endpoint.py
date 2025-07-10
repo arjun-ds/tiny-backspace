@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 """
 Test script for the Modal Coding Agent endpoint
 """
@@ -50,7 +59,7 @@ def test_endpoint(
     start_time = time.time()
     
     if verbose:
-        print(f"Testing endpoint: {base_url}")
+        logger.info(f"Testing endpoint: {base_url}")
         print(f"Repository: {repo_url}")
         print(f"Prompt: {prompt}")
         print(f"Timeout: {timeout}s")
@@ -59,13 +68,13 @@ def test_endpoint(
     try:
         # Test health check first
         if verbose:
-            print("Testing health check...")
+            logger.info("Testing health check...")
         
         health_response = requests.get(f"{base_url}/", timeout=10)
         results["health_check"] = health_response.status_code == 200
         
         if verbose:
-            print(f"Health check: {health_response.status_code}")
+            logger.info(f"Health check: {health_response.status_code}")
             if health_response.status_code == 200:
                 print(f"Response: {health_response.json()}")
             else:
@@ -82,7 +91,7 @@ def test_endpoint(
         }
         
         if verbose:
-            print(f"\nStarting SSE stream...")
+            logger.info("Starting SSE stream...")
         
         response = requests.post(
             f"{base_url}/code",
@@ -108,7 +117,7 @@ def test_endpoint(
             if time.time() - stream_start > timeout:
                 results["error"] = f"Stream timeout after {timeout}s"
                 if verbose:
-                    print(f"[TIMEOUT] Stream exceeded {timeout}s")
+                    logger.warning(f"Stream exceeded {timeout}s timeout")
                 return results
                 
             if line.startswith("data: "):
@@ -128,7 +137,7 @@ def test_endpoint(
                     elif event_type == "error":
                         results["error"] = message
                         if verbose:
-                            print(f"[ERROR] {message}")
+                            logger.error(f"{message}")
                             # Show additional error details if available
                             if "details" in data:
                                 print(f"    Error details: {data['details']}")
@@ -170,7 +179,7 @@ def test_endpoint(
                         if verbose:
                             print(f"[SUCCESS] {message}")
                             if pr_url:
-                                print(f"PR URL: {pr_url}")
+                                logger.info(f"Created PR: {pr_url}")
                         
                         # Validate PR URL if provided
                         if pr_url and _validate_pr_url(pr_url, verbose):
@@ -233,13 +242,13 @@ def _validate_pr_url(pr_url: str, verbose: bool = True) -> bool:
             if is_valid:
                 print("[VALIDATION] PR URL is accessible")
             else:
-                print(f"[VALIDATION] PR URL returned {response.status_code}")
+                logger.warning(f"PR URL validation failed with status code {response.status_code}")
         
         return is_valid
         
     except Exception as e:
         if verbose:
-            print(f"[VALIDATION] Could not validate PR URL: {e}")
+            logger.error(f"Could not validate PR URL: {e}")
         return False
 
 def _save_results(results: dict, filename: str = "test_results.json"):
