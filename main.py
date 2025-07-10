@@ -75,5 +75,19 @@ async def create_code_changes(request: CodeRequest):
 )
 @modal.asgi_app()
 def modal_asgi():
+    """Deploys the FastAPI application as a Modal ASGI app.
+    
+    This function configures the deployment environment for the FastAPI app including:
+    - Base Debian slim image
+    - Required pip packages from requirements.txt
+    - Git installation
+    - Environment variables for logging and tracing
+    - Local agent.py file copy
+    - GitHub and Anthropic API secrets
+    - 5 minute (300s) timeout
+    
+    Returns:
+        The FastAPI web application instance configured for Modal deployment
+    """
     """Deploy FastAPI app on Modal"""
     return web_app
