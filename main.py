@@ -30,7 +30,7 @@ class CodeRequest(BaseModel):
 
 @web_app.get("/")
 async def root():
-    """Health check endpoint"""
+    """Health check endpoint that returns service status"""
     return {"status": "ok", "service": "Backspace Coding Agent"}
 
 @web_app.post("/code")
@@ -75,5 +75,10 @@ async def create_code_changes(request: CodeRequest):
 )
 @modal.asgi_app()
 def modal_asgi():
-    """Deploy FastAPI app on Modal"""
+    """Main entry point for deploying the FastAPI application on Modal cloud platform.
+    Configures the deployment environment with required dependencies, secrets, and settings.
+    
+    Returns:
+        FastAPI: The configured FastAPI web application instance
+    """
     return web_app
