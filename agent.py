@@ -15,6 +15,7 @@ import subprocess
 import logging
 import time
 
+# 2
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
