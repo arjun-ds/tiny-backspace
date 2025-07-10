@@ -30,12 +30,28 @@ class CodeRequest(BaseModel):
 
 @web_app.get("/")
 async def root():
-    """Health check endpoint"""
+    """Health check endpoint
+
+Returns:
+    dict: Status response with service name
+"""
     return {"status": "ok", "service": "Backspace Coding Agent"}
 
 @web_app.post("/code")
 async def create_code_changes(request: CodeRequest):
-    """Main endpoint that streams the coding process"""
+    """Main endpoint that streams the coding process
+
+Receives a repository URL and prompt, then streams the progress of code analysis and modifications.
+
+Args:
+    request (CodeRequest): Request containing repository URL and coding prompt
+
+Returns:
+    StreamingResponse: Server-sent events stream of the coding process
+
+Raises:
+    HTTPException: If the repository URL is not from GitHub
+"""
     
     # Import agent inside the function to avoid issues during deployment
     from agent import run_agent
@@ -75,5 +91,11 @@ async def create_code_changes(request: CodeRequest):
 )
 @modal.asgi_app()
 def modal_asgi():
-    """Deploy FastAPI app on Modal"""
+    """Deploy FastAPI app on Modal
+
+Configures and deploys the FastAPI application on Modal with required dependencies and secrets.
+
+Returns:
+    FastAPI: Configured FastAPI application
+"""
     return web_app

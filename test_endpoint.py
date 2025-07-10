@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 """
+Test endpoint module for Backspace Coding Agent
+
+Provides functionality to test the Modal-deployed coding agent endpoint by:
+- Testing the health check endpoint
+- Sending coding prompts and handling SSE responses
+- Validating pull request URLs
+- Saving test results
+"""
+
+"""
 Test script for the Modal Coding Agent endpoint
 """
 
