@@ -55,7 +55,21 @@ class CodingAgent:
         prompt: str
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Process a repository and yield status updates
+        Process a GitHub repository by cloning it, analyzing the code with Claude AI,
+        implementing requested changes, and creating a pull request.
+
+        Args:
+            repo_url: The GitHub repository URL to process
+            prompt: The natural language prompt describing desired code changes
+
+        Returns:
+            AsyncGenerator yielding status update dictionaries with:
+                - type: The type of update (AI Message, Tool: Read/Edit, error, etc)
+                - message: Status message describing current progress
+                - Additional fields depending on update type
+
+        Yields event dictionaries throughout the process to provide real-time updates.
+        Creates a new branch, implements changes, and opens a pull request on success.
         """
         
         # Extract owner and repo name
