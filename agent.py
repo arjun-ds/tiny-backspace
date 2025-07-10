@@ -123,7 +123,7 @@ class CodingAgent:
                     yield hb
                 
                 # AI analysis and code modification workflow
-                yield {"type": "AI Message", "message": "Starting AI analysis with Claude-4 Opus..."}
+                yield {"type": "AI Message", "message": "Starting AI analysis with Claude 3.5 Sonnet..."}
                 for hb in maybe_heartbeat():
                     yield hb
                 
@@ -151,11 +151,15 @@ class CodingAgent:
                     # Apply changes
                     yield {"type": "AI Message", "message": f"Applying {len(changes['edits'])} changes..."}
                     for edit in changes['edits']:
+                        # Clean up the strings - strip whitespace and show meaningful content
+                        old_clean = edit["old_str"].strip()[:100].replace('\n', ' ').replace('\t', ' ').replace('    ', ' ')
+                        new_clean = edit["new_str"].strip()[:100].replace('\n', ' ').replace('\t', ' ').replace('    ', ' ')
+                        
                         yield {
                             "type": "Tool: Edit",
                             "filepath": edit["file"],
-                            "old_str": edit["old_str"][:100] + "..." if len(edit["old_str"]) > 100 else edit["old_str"],
-                            "new_str": edit["new_str"][:100] + "..." if len(edit["new_str"]) > 100 else edit["new_str"]
+                            "old_str": old_clean,
+                            "new_str": new_clean
                         }
                         self._apply_single_edit(temp_dir, edit)
                     
@@ -171,17 +175,17 @@ class CodingAgent:
                         for hb in maybe_heartbeat():
                             yield hb
                     
-                    # Create pull request
-                    yield {"type": "AI Message", "message": "Creating pull request..."}
-                    for hb in maybe_heartbeat():
-                        yield hb
+                    # Create pull request - COMMENTED OUT FOR TESTING
+                    # yield {"type": "AI Message", "message": "Creating pull request..."}
+                    # for hb in maybe_heartbeat():
+                    #     yield hb
                     
-                    pr_url = await self._create_pull_request(repo_url, branch_name, prompt)
+                    # pr_url = await self._create_pull_request(repo_url, branch_name, prompt)
                     
                     yield {
                         "type": "complete",
-                        "message": "Pull request created successfully",
-                        "pr_url": pr_url
+                        "message": "Changes completed successfully (PR creation disabled)",
+                        "pr_url": None
                     }
                     
                 except Exception as e:
@@ -311,11 +315,15 @@ Respond with your thinking and which files you'd like to see."""
                 elif chunk.startswith("EDIT_FILE:"):
                     # Claude wants to edit a file
                     edit_info = json.loads(chunk[10:])
+                    # Clean up the strings for display
+                    old_clean = edit_info["old_str"].strip()[:100].replace('\n', ' ').replace('\t', ' ').replace('    ', ' ')
+                    new_clean = edit_info["new_str"].strip()[:100].replace('\n', ' ').replace('\t', ' ').replace('    ', ' ')
+                    
                     yield {
                         "type": "Tool: Edit",
                         "filepath": edit_info["file"],
-                        "old_str": edit_info["old_str"][:100] + "..." if len(edit_info["old_str"]) > 100 else edit_info["old_str"],
-                        "new_str": edit_info["new_str"][:100] + "..." if len(edit_info["new_str"]) > 100 else edit_info["new_str"]
+                        "old_str": old_clean,
+                        "new_str": new_clean
                     }
                     # Apply the edit
                     self._apply_single_edit(repo_path, edit_info)
@@ -419,7 +427,7 @@ Work on one file at a time. Be concise but thorough.""",
             logger.error(f"Failed to apply edit to {edit_info['file']}: {str(e)}")
 
     async def _analyze_and_plan_changes(self, repo_path: str, prompt: str) -> dict:
-        """Analyze codebase and plan changes using Claude-4 Opus"""
+        """Analyze codebase and plan changes using Claude 3.5 Sonnet"""
         
         logger.info("Starting Claude analysis...")
         
@@ -438,7 +446,7 @@ Work on one file at a time. Be concise but thorough.""",
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     self.anthropic_client.messages.create,
-                    model="claude-3-opus-20240229",
+                    model="claude-3-5-sonnet-20241022",
                     max_tokens=4000,
                     system=system_prompt,
                     messages=[
@@ -730,7 +738,7 @@ Work on one file at a time. Be concise but thorough.""",
 
         try:
             response = self.anthropic_client.messages.create(
-                model="claude-3-opus-20240229",
+                model="claude-3-5-sonnet-20241022",
                 max_tokens=4000,
                 system=system_prompt,
                 messages=[
@@ -770,11 +778,13 @@ Work on one file at a time. Be concise but thorough.""",
                 os.makedirs(os.path.dirname(full_path), exist_ok=True)
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write(code)
+                # Clean up the code for display
+                new_clean = code.strip()[:100].replace('\n', ' ').replace('\t', ' ').replace('    ', ' ')
                 yield {
                     "type": "Tool: Edit",
                     "filepath": rel_path,
                     "old_str": "",
-                    "new_str": code[:100] + "..." if len(code) > 100 else code
+                    "new_str": new_clean
                 }
             elif action == 'modify':
                 try:
@@ -784,11 +794,14 @@ Work on one file at a time. Be concise but thorough.""",
                     old_content = ""
                 with open(full_path, 'w', encoding='utf-8') as f:
                     f.write(code)
+                # Clean up the content for display
+                old_clean = old_content.strip()[:100].replace('\n', ' ').replace('\t', ' ').replace('    ', ' ')
+                new_clean = code.strip()[:100].replace('\n', ' ').replace('\t', ' ').replace('    ', ' ')
                 yield {
                     "type": "Tool: Edit",
                     "filepath": rel_path,
-                    "old_str": old_content[:100] + "..." if len(old_content) > 100 else old_content,
-                    "new_str": code[:100] + "..." if len(code) > 100 else code
+                    "old_str": old_clean,
+                    "new_str": new_clean
                 }
 
     async def _create_git_branch_and_commit_and_collect_events(self, repo, branch_name: str, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:

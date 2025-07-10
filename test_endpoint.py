@@ -49,27 +49,12 @@ def test_endpoint(
     
     start_time = time.time()
     
-    if verbose:
-        print(f"Testing endpoint: {base_url}")
-        print(f"Repository: {repo_url}")
-        print(f"Prompt: {prompt}")
-        print(f"Timeout: {timeout}s")
-        print("-" * 50)
+    # Removed verbose output for cleaner display
     
     try:
         # Test health check first
-        if verbose:
-            print("Testing health check...")
-        
         health_response = requests.get(f"{base_url}/", timeout=10)
         results["health_check"] = health_response.status_code == 200
-        
-        if verbose:
-            print(f"Health check: {health_response.status_code}")
-            if health_response.status_code == 200:
-                print(f"Response: {health_response.json()}")
-            else:
-                print(f"Error response: {health_response.text}")
         
         if not results["health_check"]:
             results["error"] = f"Health check failed: {health_response.status_code}"
@@ -81,8 +66,7 @@ def test_endpoint(
             "prompt": prompt
         }
         
-        if verbose:
-            print(f"\nStarting SSE stream...")
+        # Starting SSE stream
         
         response = requests.post(
             f"{base_url}/code",
@@ -118,59 +102,17 @@ def test_endpoint(
                     event_type = data.get("type", "unknown")
                     message = data.get("message", "")
                     
-                    if event_type == "status":
-                        stage = data.get("stage", "")
-                        if verbose:
-                            print(f"[{stage.upper()}] {message}")
-                            # Show additional details if available
-                            if "details" in data:
-                                print(f"    Details: {data['details']}")
-                    elif event_type == "error":
+                    if event_type == "error":
                         results["error"] = message
                         if verbose:
-                            print(f"[ERROR] {message}")
-                            # Show additional error details if available
-                            if "details" in data:
-                                print(f"    Error details: {data['details']}")
-                            if "validation_results" in data:
-                                print(f"    Validation results: {json.dumps(data['validation_results'], indent=2)}")
+                            print(f"data: {json.dumps(data, separators=(',', ':'))}")
                         return results
-                    elif event_type == "preview":
-                        # Handle change preview event
-                        if verbose:
-                            print(f"\n[PREVIEW] Change Analysis:")
-                            print(f"  Interpretation: {data.get('interpretation', '')}")
-                            print(f"  Found target: {data.get('found_target', 'N/A')}")
-                            
-                            assumptions = data.get('assumptions', [])
-                            if assumptions:
-                                print(f"  Assumptions:")
-                                for assumption in assumptions:
-                                    print(f"    - {assumption}")
-                            
-                            change_summary = data.get('change_summary', {})
-                            if change_summary:
-                                print(f"  Change Summary:")
-                                print(f"    - Files affected: {change_summary.get('files_affected', 0)}")
-                                print(f"    - Lines added: {change_summary.get('lines_added', 0)}")
-                                print(f"    - Lines removed: {change_summary.get('lines_removed', 0)}")
-                                print(f"    - Change type: {change_summary.get('change_type', 'unknown')}")
-                            
-                            files_to_change = data.get('files_to_change', [])
-                            if files_to_change:
-                                print(f"  Files to change:")
-                                for file_change in files_to_change:
-                                    print(f"    - {file_change['file']} ({file_change['action']}): +{file_change.get('lines_added', 0)}/-{file_change.get('lines_removed', 0)}")
-                                    if file_change.get('description'):
-                                        print(f"      {file_change['description']}")
                     elif event_type == "complete":
                         pr_url = data.get("pr_url", "")
                         results["pr_url"] = pr_url
                         results["success"] = True
                         if verbose:
-                            print(f"[SUCCESS] {message}")
-                            if pr_url:
-                                print(f"PR URL: {pr_url}")
+                            print(f"data: {json.dumps(data, separators=(',', ':'))}")
                         
                         # Validate PR URL if provided
                         if pr_url and _validate_pr_url(pr_url, verbose):
@@ -179,10 +121,8 @@ def test_endpoint(
                         return results
                     else:
                         if verbose:
-                            print(f"[{event_type.upper()}] {message}")
-                            # Show all available data for unknown event types in verbose mode
-                            if verbose:
-                                print(f"    Full event data: {json.dumps(data, indent=2)}")
+                            # Just print the clean event format
+                            print(f"data: {json.dumps(data, separators=(',', ':'))}")
                         
                 except json.JSONDecodeError:
                     if verbose:
@@ -193,8 +133,6 @@ def test_endpoint(
                         print(f"Raw line: {line}")
         
         # Stream ended without completion
-        if verbose:
-            print(f"\nStream ended. Received {results['events_received']} events")
         
         if results["events_received"] == 0:
             results["error"] = "No events received from stream"
@@ -313,15 +251,8 @@ def main():
     # Run the test
     results = test_endpoint(base_url, repo_url, prompt, timeout, verbose)
     
-    # Print summary
-    if verbose:
-        print("\n" + "="*50)
-        print("TEST SUMMARY")
-        print("="*50)
-    
-    print(f"Success: {results['success']}")
-    print(f"Duration: {results['duration']:.1f}s")
-    print(f"Events received: {results['events_received']}")
+    # Print minimal summary
+    print(f"Success: {results['success']} | Duration: {results['duration']:.1f}s | Events: {results['events_received']}")
     
     if results['error']:
         print(f"Error: {results['error']}")
