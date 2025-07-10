@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 """
 Test script for the Modal Coding Agent endpoint
 """
@@ -49,6 +58,7 @@ def test_endpoint(
     
     start_time = time.time()
     
+    logger.info(f"Testing endpoint: {base_url}")
     if verbose:
         print(f"Testing endpoint: {base_url}")
         print(f"Repository: {repo_url}")
@@ -108,7 +118,8 @@ def test_endpoint(
             if time.time() - stream_start > timeout:
                 results["error"] = f"Stream timeout after {timeout}s"
                 if verbose:
-                    print(f"[TIMEOUT] Stream exceeded {timeout}s")
+                    logger.warning(f"Stream exceeded timeout of {timeout}s")
+            print(f"[TIMEOUT] Stream exceeded {timeout}s")
                 return results
                 
             if line.startswith("data: "):
@@ -128,7 +139,8 @@ def test_endpoint(
                     elif event_type == "error":
                         results["error"] = message
                         if verbose:
-                            print(f"[ERROR] {message}")
+                            logger.error(f"Error event received: {message}")
+                        print(f"[ERROR] {message}")
                             # Show additional error details if available
                             if "details" in data:
                                 print(f"    Error details: {data['details']}")
@@ -186,9 +198,11 @@ def test_endpoint(
                         
                 except json.JSONDecodeError:
                     if verbose:
+                        logger.error(f"Invalid JSON in event: {line}")
                         print(f"Invalid JSON: {line}")
                 except Exception as e:
                     if verbose:
+                        logger.error(f"Failed to parse event: {e}")
                         print(f"Error parsing event: {e}")
                         print(f"Raw line: {line}")
         
@@ -204,16 +218,19 @@ def test_endpoint(
     except requests.exceptions.Timeout:
         results["error"] = f"Request timeout after {timeout}s"
         if verbose:
+            logger.error(f"Request timeout after {timeout}s")
             print(f"Error: Request timeout after {timeout}s")
         return results
     except requests.exceptions.ConnectionError:
         results["error"] = "Could not connect to endpoint"
         if verbose:
+            logger.error("Failed to connect to endpoint")
             print("Error: Could not connect to endpoint")
         return results
     except Exception as e:
         results["error"] = str(e)
         if verbose:
+            logger.error(f"Unexpected error: {e}")
             print(f"Error: {e}")
         return results
     finally:
