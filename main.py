@@ -5,8 +5,6 @@ from pydantic import BaseModel, HttpUrl
 import asyncio
 import json
 from typing import AsyncGenerator
-import agent
-from agent import run_agent
 
 # Define the Modal app
 app = modal.App("backspace-agent")
@@ -29,6 +27,9 @@ async def root():
 async def create_code_changes(request: CodeRequest):
     """Main endpoint that streams the coding process"""
     
+    # Import agent inside the function to avoid issues during deployment
+    from agent import run_agent
+    
     # Validate the request
     repo_url = str(request.repoUrl)
     if not repo_url.startswith("https://github.com/"):
@@ -50,9 +51,13 @@ async def create_code_changes(request: CodeRequest):
     image=modal.Image.debian_slim()
         .pip_install_from_requirements("requirements.txt")
         .apt_install("git")
-        .copy_local_file("agent.py", "/root/agent.py"),
-    secrets=[modal.Secret.from_name("github-token")],
-    timeout=300  # 5 minute timeout for long operations
+        .env({"LOG_LEVEL": "INFO", "DD_TRACE_ENABLED": "false"})
+        .add_local_file("agent.py", "/root/agent.py"),
+    secrets=[
+        modal.Secret.from_name("github-token"),
+        modal.Secret.from_name("anthropic-api-key")
+    ],
+    timeout=300
 )
 @modal.asgi_app()
 def modal_asgi():

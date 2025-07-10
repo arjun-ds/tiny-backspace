@@ -4,9 +4,10 @@ A sandboxed AI agent that automatically creates pull requests from natural langu
 
 ## Architecture
 
-- **FastAPI** - Web framework with native SSE support
-- **Modal** - Serverless platform for both API hosting and sandboxed code execution
-- **PyGithub** - GitHub API integration for PR creation
+- **FastAPI** - Web framework with SSE streaming
+- **Modal** - Serverless platform for hosting and sandboxed execution
+- **Claude-4 Opus** - AI code analysis and modification
+- **PyGithub** - GitHub API integration
 
 ## Setup
 
@@ -32,9 +33,10 @@ modal token new
 
 ### Configuration
 
-Create a `.env` file with:
-```
-GITHUB_TOKEN=your_github_pat_here
+Set up Modal secrets:
+```bash
+modal secret create github-token GITHUB_TOKEN=<your_pat>
+modal secret create anthropic-api-key ANTHROPIC_API_KEY=<your_key>
 ```
 
 ## Usage
@@ -46,6 +48,8 @@ modal deploy main.py
 ```
 
 This will output a public URL like: `https://your-app.modal.run`
+
+**Note:** The deployment imports `agent.py` inside the FastAPI endpoint function to avoid dependency conflicts during deployment. Modal builds the container image with all requirements before importing the module.
 
 ### API Endpoint
 
@@ -72,31 +76,31 @@ curl -X POST https://your-app.modal.run/code \
   }'
 ```
 
-## Local Development
+## Testing
 
-For local testing without Modal:
+Test the deployed endpoint:
 
 ```bash
-# Run the FastAPI app locally
-python test_local.py
-
-# In another terminal, test SSE streaming
-python test_sse.py
+python test_endpoint.py https://your-app.modal.run
 ```
 
-## Architecture Decisions
+Additional options:
 
-### Why Modal?
-- Single platform for both API hosting and sandboxed execution
-- Native FastAPI support via `@modal.asgi_app()`
-- Excellent Python SDK and documentation
-- Built-in security and isolation
+```bash
+# Custom repository and prompt
+python test_endpoint.py https://your-app.modal.run --repo https://github.com/owner/repo --prompt "Add error handling"
 
-### Why FastAPI?
-- Native SSE support with `StreamingResponse`
-- Async/await for efficient I/O operations
-- Automatic API documentation
-- Type safety with Pydantic
+# Authentication test (no changes made)
+python test_endpoint.py https://your-app.modal.run --auth-test
+
+# Quiet mode with results saved to file
+python test_endpoint.py https://your-app.modal.run --quiet --save-results
+
+# Custom timeout
+python test_endpoint.py https://your-app.modal.run --timeout 600
+```
+
+**Note:** Requires `requests` library (`pip install requests`)
 
 ## Implementation Status
 
@@ -104,9 +108,13 @@ python test_sse.py
 - [x] Modal deployment configuration
 - [x] GitHub repository cloning integration
 - [x] GitHub PAT authentication setup
-- [ ] AI agent integration
-- [ ] Pull request creation
+- [x] Anthropic Claude-4 Opus integration
+- [x] Code analysis and modification workflow
+- [x] Secure subprocess validation with error cycling
+- [x] Git branching and commit operations
+- [x] Pull request creation
 - [ ] Production monitoring
+- [ ] Enhanced security hardening (see Security Considerations)
 - [ ] Comprehensive error handling
 
 
@@ -116,3 +124,12 @@ python test_sse.py
 - Code execution happens in isolated Modal sandboxes
 - GitHub PAT is stored securely as Modal secret
 - Input validation on all endpoints
+
+### Code Execution Security
+Code validation runs in subprocess isolation with restricted environment variables and 30-second timeouts. **Additional security measures for production deployment:**
+
+- **Container isolation**: Docker-in-Docker or stronger containerization
+- **VM-level sandboxing**: gVisor, Firecracker, or similar technologies
+- **Resource quotas**: CPU, memory, disk, and network limits
+- **System-level restrictions**: AppArmor/SELinux profiles for syscall filtering
+- **Network isolation**: Prevent outbound connections during code execution

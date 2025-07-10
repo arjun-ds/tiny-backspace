@@ -17,6 +17,7 @@ setup_secrets.sh
 
 # Test scripts
 test_*.py
+!test_endpoint.py
 
 # Python
 __pycache__/
