@@ -1,0 +1,9 @@
+modal
+fastapi
+uvicorn
+pydantic
+httpx
+GitPython
+PyGithub
+python-dotenv
+ddtrace

@@ -1,0 +1,88 @@
+# Internal documentation and notes
+CLAUDE.md
+IMPLEMENTATION_STATUS.md
+STATUS_SUMMARY.md
+DECISIONS.md
+*_STATUS.md
+*_NOTES.md
+*_INTERNAL.md
+
+# Environment variables and secrets
+.env
+*.env
+.env.*
+create_secret.sh
+setup_secrets.sh
+*secret*
+
+# Test scripts
+test_*.py
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Modal
+.modal/
+modal_volume/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Project specific
+temp/
+sandbox/
