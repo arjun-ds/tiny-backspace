@@ -1,5 +1,21 @@
 """
 Coding agent implementation for Backspace
+
+Provides functionality to analyze and modify code repositories using:
+- GitHub API for repository access
+- Claude AI for code analysis
+- Git operations for version control
+
+The agent can:
+- Clone repositories
+- Analyze code structure
+- Make code modifications
+- Create pull requests
+
+Typical usage:
+    agent = CodingAgent(github_token)
+    async for event in agent.process_repository(repo_url, prompt):
+        # Handle event updates
 """
 
 import os
@@ -37,7 +53,17 @@ else:
     tracer = None
 
 class CodingAgent:
-    """Handles code analysis and modification"""
+    """Handles code analysis and modification
+
+    Main class that orchestrates the code analysis and modification process.
+    Uses Claude AI for analysis and GitHub API for repository operations.
+
+    Args:
+        github_token (str): GitHub API token for repository access
+        
+    Raises:
+        ValueError: If ANTHROPIC_API_KEY environment variable is not set
+    """
     
     def __init__(self, github_token: str):
         self.github_token = github_token
