@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 """
 Test script for the Modal Coding Agent endpoint
 """
@@ -49,6 +58,7 @@ def test_endpoint(
     
     start_time = time.time()
     
+    logger.info(f"Testing endpoint: {base_url}")
     if verbose:
         print(f"Testing endpoint: {base_url}")
         print(f"Repository: {repo_url}")
@@ -108,7 +118,8 @@ def test_endpoint(
             if time.time() - stream_start > timeout:
                 results["error"] = f"Stream timeout after {timeout}s"
                 if verbose:
-                    print(f"[TIMEOUT] Stream exceeded {timeout}s")
+                    logger.warning(f"Stream exceeded timeout of {timeout}s")
+            print(f"[TIMEOUT] Stream exceeded {timeout}s")
                 return results
                 
             if line.startswith("data: "):
@@ -167,6 +178,7 @@ def test_endpoint(
                         pr_url = data.get("pr_url", "")
                         results["pr_url"] = pr_url
                         results["success"] = True
+                        logger.info("Processing completed successfully")
                         if verbose:
                             print(f"[SUCCESS] {message}")
                             if pr_url:
@@ -186,10 +198,12 @@ def test_endpoint(
                         
                 except json.JSONDecodeError:
                     if verbose:
-                        print(f"Invalid JSON: {line}")
+                        logger.error(f"Invalid JSON in event: {line}")
+                print(f"Invalid JSON: {line}")
                 except Exception as e:
                     if verbose:
-                        print(f"Error parsing event: {e}")
+                        logger.error(f"Error parsing event: {str(e)}")
+                print(f"Error parsing event: {e}")
                         print(f"Raw line: {line}")
         
         # Stream ended without completion
