@@ -27,6 +27,8 @@ async def root():
 async def create_code_changes(request: CodeRequest):
     """Main endpoint that streams the coding process"""
     
+    print("Hello World")
+    
     # Import agent inside the function to avoid issues during deployment
     from agent import run_agent
     
