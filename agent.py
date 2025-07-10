@@ -54,6 +54,8 @@ class CodingAgent:
         repo_url: str, 
         prompt: str
     ) -> AsyncGenerator[Dict[str, Any], None]:
+        
+        print(f"Starting process_repository for {repo_url} with prompt: {prompt}")
         """
         Process a repository and yield status updates
         """
