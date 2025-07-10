@@ -13,6 +13,7 @@ import json
 import anthropic
 import subprocess
 import logging
+import time
 
 # Configure logging
 logging.basicConfig(
@@ -63,11 +64,22 @@ class CodingAgent:
         
         logger.info(f"Processing repository: {repo_url} with prompt: {prompt}")
         
+        # Heartbeat setup
+        last_heartbeat = time.time()
+        heartbeat_interval = 2  # seconds
+        def maybe_heartbeat():
+            nonlocal last_heartbeat
+            now = time.time()
+            if now - last_heartbeat > heartbeat_interval:
+                yield {"type": "heartbeat", "message": "Still working..."}
+                last_heartbeat = now
+        
         # Create temporary directory for cloning
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
-                # Clone repository with authentication
-                yield {"type": "status", "stage": "clone", "message": f"Cloning {repo_url}..."}
+                yield {"type": "AI Message", "message": f"Cloning {repo_url}..."}
+                for hb in maybe_heartbeat():
+                    yield hb
                 
                 # Add authentication to the URL for pushing
                 auth_url = repo_url.replace('https://', f'https://{self.github_token}@')
@@ -76,15 +88,21 @@ class CodingAgent:
                 logger.info("Cloning repository with authentication")
                 
                 repo = git.Repo.clone_from(auth_url, temp_dir)
+                for hb in maybe_heartbeat():
+                    yield hb
                 
                 # Configure git user for commits
                 repo.config_writer().set_value("user", "name", "Coding Agent").release()
                 repo.config_writer().set_value("user", "email", "backspace-agent@users.noreply.github.com").release()
                 
-                yield {"type": "status", "stage": "clone", "message": "Repository cloned successfully"}
+                yield {"type": "AI Message", "message": "Repository cloned successfully"}
+                for hb in maybe_heartbeat():
+                    yield hb
                 
                 # Analyze codebase
-                yield {"type": "status", "stage": "analyze", "message": "Analyzing codebase structure..."}
+                yield {"type": "AI Message", "message": "Analyzing codebase structure..."}
+                for hb in maybe_heartbeat():
+                    yield hb
                 
                 # List all Python files as an example
                 py_files = []
@@ -94,106 +112,70 @@ class CodingAgent:
                         continue
                     for file in files:
                         if file.endswith('.py'):
-                            py_files.append(os.path.join(root, file))
-                
-                yield {
-                    "type": "status", 
-                    "stage": "analyze", 
-                    "message": f"Found {len(py_files)} Python files"
-                }
+                            file_path = os.path.join(root, file)
+                            py_files.append(file_path)
+                            rel_path = os.path.relpath(file_path, temp_dir)
+                            yield {"type": "Tool: Read", "filepath": rel_path}
+                            for hb in maybe_heartbeat():
+                                yield hb
+                yield {"type": "AI Message", "message": f"Found {len(py_files)} Python files"}
+                for hb in maybe_heartbeat():
+                    yield hb
                 
                 # AI analysis and code modification workflow
-                yield {"type": "status", "stage": "analyze", "message": "Starting AI analysis with Claude-4 Opus..."}
+                yield {"type": "AI Message", "message": "Starting AI analysis with Claude-4 Opus..."}
+                for hb in maybe_heartbeat():
+                    yield hb
                 
                 try:
-                    # Analyze codebase and plan changes
-                    changes = await self._analyze_and_plan_changes(temp_dir, prompt)
+                    # Simple, fast analysis with Claude 3.5 Sonnet
+                    yield {"type": "AI Message", "message": "Analyzing with Claude 3.5 Sonnet..."}
                     
-                    logger.info(f"Claude planned {len(changes.get('plan', []))} changes")
-                    logger.debug(f"Change plan: {json.dumps(changes, indent=2)}")
+                    # Get file structure
+                    file_list = self._get_repo_structure(temp_dir)
+                    yield {"type": "AI Message", "message": f"Found files: {', '.join(file_list)}"}
                     
-                    yield {
-                        "type": "status", 
-                        "stage": "analyze", 
-                        "message": f"Analysis complete. Planning {len(changes.get('plan', []))} changes"
-                    }
+                    # Read all files and emit Tool: Read events
+                    files_content = {}
+                    for filename in file_list:
+                        yield {"type": "Tool: Read", "filepath": filename}
+                        files_content[filename] = self._read_file(temp_dir, filename)
                     
-                    # Stream change preview
-                    yield {
-                        "type": "preview",
-                        "stage": "preview",
-                        "interpretation": changes.get("interpretation", ""),
-                        "found_target": changes.get("found_target", None),
-                        "assumptions": changes.get("assumptions", []),
-                        "change_summary": changes.get("change_summary", {}),
-                        "files_to_change": [
-                            {
-                                "file": change["file"],
-                                "action": change["action"],
-                                "lines_added": change.get("lines_added", 0),
-                                "lines_removed": change.get("lines_removed", 0),
-                                "description": change.get("description", "")
-                            } for change in changes.get("plan", [])
-                        ]
-                    }
+                    # Simple Claude request
+                    changes = await self._simple_claude_analysis(files_content, prompt)
                     
-                    # Apply code changes
-                    yield {"type": "status", "stage": "modify", "message": "Applying code changes..."}
-                    await self._apply_code_changes(temp_dir, changes)
+                    if not changes.get('edits'):
+                        yield {"type": "AI Message", "message": "No changes needed"}
+                        return
                     
-                    # Validate code with error cycling
-                    yield {"type": "status", "stage": "validate", "message": "Running comprehensive code validation..."}
+                    # Apply changes
+                    yield {"type": "AI Message", "message": f"Applying {len(changes['edits'])} changes..."}
+                    for edit in changes['edits']:
+                        yield {
+                            "type": "Tool: Edit",
+                            "filepath": edit["file"],
+                            "old_str": edit["old_str"][:100] + "..." if len(edit["old_str"]) > 100 else edit["old_str"],
+                            "new_str": edit["new_str"][:100] + "..." if len(edit["new_str"]) > 100 else edit["new_str"]
+                        }
+                        self._apply_single_edit(temp_dir, edit)
                     
-                    attempt = 1
-                    max_attempts = 3
-                    validation_passed = False
+                    # After interactive implementation, commit changes
+                    yield {"type": "AI Message", "message": "Creating git commit..."}
+                    for hb in maybe_heartbeat():
+                        yield hb
                     
-                    while attempt <= max_attempts and not validation_passed:
-                        validation_results = await self._run_code_validation(temp_dir)
-                        
-                        if validation_results["success"]:
-                            validation_passed = True
-                            yield {"type": "status", "stage": "validate", "message": "Code validation successful"}
-                        else:
-                            yield {
-                                "type": "status", 
-                                "stage": "validate", 
-                                "message": f"Validation failed (attempt {attempt}/{max_attempts}), asking Claude to fix errors..."
-                            }
-                            
-                            if attempt < max_attempts:
-                                # Get fixes from Claude
-                                fixes = await self._cycle_errors_with_claude(temp_dir, validation_results, prompt, attempt)
-                                
-                                # Apply fixes
-                                yield {"type": "status", "stage": "fix", "message": "Applying error fixes..."}
-                                await self._apply_code_changes(temp_dir, fixes)
-                                
-                                attempt += 1
-                            else:
-                                # Max attempts reached
-                                error_summary = []
-                                if validation_results["syntax_errors"]:
-                                    error_summary.append(f"Syntax errors: {', '.join(validation_results['syntax_errors'])}")
-                                if validation_results["compilation_errors"]:
-                                    error_summary.append(f"Compilation errors: {len(validation_results['compilation_errors'])} files")
-                                
-                                yield {
-                                    "type": "error",
-                                    "message": f"Validation failed after {max_attempts} attempts: {'; '.join(error_summary)}"
-                                }
-                                return
-                    
-                    # Check git status before commit
-                    git_status = repo.git.status()
-                    
-                    # Create git branch and commit
-                    branch_name = changes.get('branch_name', f'agent-changes-{int(asyncio.get_event_loop().time())}')
-                    yield {"type": "status", "stage": "commit", "message": f"Creating branch '{branch_name}'..."}
-                    await self._create_git_branch_and_commit(repo, branch_name, prompt)
+                    # Git operations with simple branch name
+                    branch_name = f'claude-improvements-{int(time.time())}'
+                    async for bash_event in self._create_git_branch_and_commit_and_collect_events(repo, branch_name, prompt):
+                        yield bash_event
+                        for hb in maybe_heartbeat():
+                            yield hb
                     
                     # Create pull request
-                    yield {"type": "status", "stage": "pr", "message": "Creating pull request..."}
+                    yield {"type": "AI Message", "message": "Creating pull request..."}
+                    for hb in maybe_heartbeat():
+                        yield hb
+                    
                     pr_url = await self._create_pull_request(repo_url, branch_name, prompt)
                     
                     yield {
@@ -203,16 +185,10 @@ class CodingAgent:
                     }
                     
                 except Exception as e:
-                    yield {
-                        "type": "error",
-                        "message": f"Workflow failed: {str(e)}"
-                    }
+                    yield {"type": "error", "message": f"Workflow failed: {str(e)}"}
                 
             except Exception as e:
-                yield {
-                    "type": "error",
-                    "message": f"Error processing repository: {str(e)}"
-                }
+                yield {"type": "error", "message": f"Error processing repository: {str(e)}"}
     
     async def _create_pull_request(self, repo_url: str, branch_name: str, prompt: str) -> str:
         """Create a pull request for the changes"""
@@ -227,7 +203,7 @@ class CodingAgent:
             pr = repo.create_pull(
                 title=f"Automated changes: {prompt}",
                 body=f"This pull request implements the following changes:\n\n{prompt}",
-                head=branch_name,
+                head=f"{owner}:{branch_name}",  # Need owner:branch format
                 base="main"
             )
             
@@ -237,31 +213,254 @@ class CodingAgent:
             # Raise exception for proper error handling
             raise Exception(f"Failed to create pull request: {str(e)}")
     
+    async def _simple_claude_analysis(self, files_content: dict, prompt: str) -> dict:
+        """Simple, fast Claude analysis with 3.5 Sonnet"""
+        
+        # Build a simple prompt
+        files_text = ""
+        for filename, content in files_content.items():
+            files_text += f"\n=== {filename} ===\n{content}\n"
+        
+        simple_prompt = f"""Task: {prompt}
+
+Files to modify:
+{files_text}
+
+Please provide your response as JSON with this format:
+{{
+    "edits": [
+        {{
+            "file": "filename.py",
+            "old_str": "exact text to replace",
+            "new_str": "replacement text"
+        }}
+    ]
+}}
+
+Make one edit per logical change. Use exact string matching for old_str."""
+
+        try:
+            response = self.anthropic_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=4000,
+                messages=[{"role": "user", "content": simple_prompt}]
+            )
+            
+            response_text = response.content[0].text
+            
+            # Parse JSON response
+            if "```json" in response_text:
+                json_start = response_text.find("```json") + 7
+                json_end = response_text.find("```", json_start)
+                response_text = response_text[json_start:json_end]
+            
+            return json.loads(response_text)
+            
+        except Exception as e:
+            logger.error(f"Claude analysis failed: {str(e)}")
+            return {"edits": []}
+
+    async def _interactive_analysis_and_implementation(self, repo_path: str, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:
+        """Interactive analysis and implementation with Claude 3.5 Sonnet"""
+        
+        # Get repository structure (just names, not content)
+        file_structure = self._get_repo_structure(repo_path)
+        
+        yield {"type": "AI Message", "message": f"Repository structure identified: {len(file_structure)} Python files"}
+        
+        conversation_history = []
+        
+        # Initial prompt to Claude with just file names
+        initial_prompt = f"""I need help with this task: {prompt}
+
+Here's the repository structure:
+{chr(10).join(f"- {file}" for file in file_structure)}
+
+Please analyze this step by step:
+1. Which files do you want to examine first?
+2. What's your approach for this task?
+
+Respond with your thinking and which files you'd like to see."""
+
+        conversation_history.append({"role": "user", "content": initial_prompt})
+        
+        # Start interactive conversation
+        for round_num in range(10):  # Max 10 rounds to prevent infinite loops
+            yield {"type": "AI Message", "message": f"Round {round_num + 1}: Consulting Claude..."}
+            
+            # Get Claude's response with streaming
+            claude_response = ""
+            async for chunk in self._stream_claude_response(conversation_history):
+                if chunk.startswith("AI:"):
+                    yield {"type": "AI Message", "message": chunk[3:].strip()}
+                    claude_response += chunk[3:]
+                elif chunk.startswith("NEED_FILE:"):
+                    # Claude wants to see a file
+                    filename = chunk[10:].strip()
+                    if filename in file_structure:
+                        yield {"type": "Tool: Read", "filepath": filename}
+                        file_content = self._read_file(repo_path, filename)
+                        conversation_history.append({
+                            "role": "assistant", 
+                            "content": f"I need to see {filename}"
+                        })
+                        conversation_history.append({
+                            "role": "user", 
+                            "content": f"Here's {filename}:\n\n{file_content}"
+                        })
+                elif chunk.startswith("EDIT_FILE:"):
+                    # Claude wants to edit a file
+                    edit_info = json.loads(chunk[10:])
+                    yield {
+                        "type": "Tool: Edit",
+                        "filepath": edit_info["file"],
+                        "old_str": edit_info["old_str"][:100] + "..." if len(edit_info["old_str"]) > 100 else edit_info["old_str"],
+                        "new_str": edit_info["new_str"][:100] + "..." if len(edit_info["new_str"]) > 100 else edit_info["new_str"]
+                    }
+                    # Apply the edit
+                    self._apply_single_edit(repo_path, edit_info)
+                elif chunk.startswith("DONE"):
+                    yield {"type": "AI Message", "message": "Claude has completed the implementation"}
+                    return
+            
+            # Add Claude's response to conversation
+            if claude_response.strip():
+                conversation_history.append({"role": "assistant", "content": claude_response})
+        
+        yield {"type": "AI Message", "message": "Interactive session completed"}
+
+    async def _stream_claude_response(self, conversation_history: list) -> AsyncGenerator[str, None]:
+        """Stream Claude's response and parse special commands"""
+        try:
+            async with self.anthropic_client.messages.stream(
+                model="claude-3-5-sonnet-20241022",  # Using 3.5 Sonnet
+                max_tokens=2000,
+                system="""You are a coding assistant. You can:
+1. Ask to see files by saying "NEED_FILE: filename.py"
+2. Edit files by saying "EDIT_FILE: {json with file, old_str, new_str}"
+3. Share your thinking with regular text
+4. Say "DONE" when finished
+
+Work on one file at a time. Be concise but thorough.""",
+                messages=conversation_history
+            ) as stream:
+                
+                current_chunk = ""
+                async for event in stream:
+                    if event.type == "content_block_delta":
+                        text = event.delta.text
+                        current_chunk += text
+                        
+                        # Check for special commands
+                        if "NEED_FILE:" in current_chunk:
+                            lines = current_chunk.split('\n')
+                            for line in lines:
+                                if line.strip().startswith("NEED_FILE:"):
+                                    yield line.strip()
+                                    current_chunk = current_chunk.replace(line, '')
+                        elif "EDIT_FILE:" in current_chunk:
+                            # Look for complete JSON
+                            start_idx = current_chunk.find("EDIT_FILE:")
+                            if start_idx != -1:
+                                json_start = start_idx + 10
+                                try:
+                                    # Try to parse JSON - might be incomplete
+                                    json_part = current_chunk[json_start:].strip()
+                                    if json_part.count('{') == json_part.count('}') and json_part.endswith('}'):
+                                        json.loads(json_part)  # Validate
+                                        yield f"EDIT_FILE:{json_part}"
+                                        current_chunk = ""
+                                except:
+                                    pass  # Wait for more data
+                        elif "DONE" in current_chunk:
+                            yield "DONE"
+                            return
+                        else:
+                            # Regular text - yield as AI message
+                            if text and not any(cmd in current_chunk for cmd in ["NEED_FILE:", "EDIT_FILE:", "DONE"]):
+                                yield f"AI:{text}"
+                
+        except Exception as e:
+            yield f"AI:Error: {str(e)}"
+
+    def _get_repo_structure(self, repo_path: str) -> list:
+        """Get list of Python files in the repo"""
+        py_files = []
+        for root, dirs, files in os.walk(repo_path):
+            if '.git' in root:
+                continue
+            for file in files:
+                if file.endswith('.py'):
+                    rel_path = os.path.relpath(os.path.join(root, file), repo_path)
+                    py_files.append(rel_path)
+        return py_files
+
+    def _read_file(self, repo_path: str, filename: str) -> str:
+        """Read a single file's content"""
+        try:
+            with open(os.path.join(repo_path, filename), 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            return f"Error reading file: {str(e)}"
+
+    def _apply_single_edit(self, repo_path: str, edit_info: dict):
+        """Apply a single edit to a file"""
+        file_path = os.path.join(repo_path, edit_info["file"])
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Apply the edit
+            new_content = content.replace(edit_info["old_str"], edit_info["new_str"], 1)
+            
+            with open(file_path, 'w', encoding='utf-8') as f:
+                f.write(new_content)
+        except Exception as e:
+            logger.error(f"Failed to apply edit to {edit_info['file']}: {str(e)}")
+
     async def _analyze_and_plan_changes(self, repo_path: str, prompt: str) -> dict:
         """Analyze codebase and plan changes using Claude-4 Opus"""
         
+        logger.info("Starting Claude analysis...")
+        
         # Read key files for analysis
         files_content = self._collect_codebase_files(repo_path)
+        logger.info(f"Collected {len(files_content)} files for analysis")
         
         # Generate analysis using Claude
         system_prompt = self._get_analysis_system_prompt()
         user_prompt = self._build_analysis_user_prompt(prompt, files_content)
         
+        logger.info("Sending request to Claude...")
         try:
-            response = self.anthropic_client.messages.create(
-                model="claude-3-opus-20240229",
-                max_tokens=4000,
-                system=system_prompt,
-                messages=[
-                    {"role": "user", "content": user_prompt}
-                ]
+            # Add timeout to prevent hanging
+            import asyncio
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.anthropic_client.messages.create,
+                    model="claude-3-opus-20240229",
+                    max_tokens=4000,
+                    system=system_prompt,
+                    messages=[
+                        {"role": "user", "content": user_prompt}
+                    ]
+                ),
+                timeout=120  # 2 minute timeout
             )
+            
+            logger.info("Received response from Claude")
             
             # Parse the JSON response
             response_text = response.content[0].text
-            return self._parse_claude_response(response_text)
+            logger.info(f"Claude response length: {len(response_text)} characters")
+            
+            result = self._parse_claude_response(response_text)
+            logger.info(f"Parsed response, found {len(result.get('plan', []))} planned changes")
+            
+            return result
             
         except Exception as e:
+            logger.error(f"Claude analysis failed: {str(e)}")
             raise Exception(f"Failed to analyze codebase: {str(e)}")
     
     def _collect_codebase_files(self, repo_path: str) -> dict:
@@ -559,40 +758,68 @@ class CodingAgent:
 
             Response format: Valid JSON only, no markdown formatting."""
     
-    async def _create_git_branch_and_commit(self, repo, branch_name: str, prompt: str) -> None:
-        """Create git branch and commit changes"""
-        
-        try:
-            # Create and checkout new branch
-            new_branch = repo.create_head(branch_name)
-            repo.head.reference = new_branch
-            
-            # Stage all changes - use the git command directly
-            repo.git.add('-A')
-            
-            # Log what's staged
-            staged_files = repo.git.diff('--cached', '--name-only')
-            logger.info(f"Staged files: {staged_files}")
-            
-            # Check if there are any changes to commit
-            if repo.is_dirty() or repo.untracked_files:
-                # Commit changes
-                commit_message = f"Implement: {prompt}"
-                repo.index.commit(commit_message)
-                
-                # Push branch to remote
+    async def _apply_code_changes_and_collect_events(self, repo_path: str, changes: dict) -> AsyncGenerator[Dict[str, Any], None]:
+        """Apply the planned code changes to files and yield Tool: Edit events"""
+        for change in changes.get('plan', []):
+            file_path = change.get('file')
+            action = change.get('action')
+            code = change.get('code', '')
+            rel_path = file_path
+            full_path = os.path.join(repo_path, file_path)
+            if action == 'create':
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write(code)
+                yield {
+                    "type": "Tool: Edit",
+                    "filepath": rel_path,
+                    "old_str": "",
+                    "new_str": code[:100] + "..." if len(code) > 100 else code
+                }
+            elif action == 'modify':
                 try:
-                    origin = repo.remote('origin')
-                    origin.push(new_branch)
-                    logger.info(f"Successfully pushed branch {branch_name}")
-                except Exception as push_error:
-                    logger.error(f"Failed to push branch: {push_error}")
-                    raise Exception(f"Cannot create PR without pushing branch: {str(push_error)}")
-            else:
-                raise Exception("No changes to commit")
-                
+                    with open(full_path, 'r', encoding='utf-8') as f:
+                        old_content = f.read()
+                except Exception:
+                    old_content = ""
+                with open(full_path, 'w', encoding='utf-8') as f:
+                    f.write(code)
+                yield {
+                    "type": "Tool: Edit",
+                    "filepath": rel_path,
+                    "old_str": old_content[:100] + "..." if len(old_content) > 100 else old_content,
+                    "new_str": code[:100] + "..." if len(code) > 100 else code
+                }
+
+    async def _create_git_branch_and_commit_and_collect_events(self, repo, branch_name: str, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:
+        """Create git branch and commit changes and yield Tool: Bash events"""
+        # Branch
+        repo.git.checkout('-b', branch_name)
+        yield {"type": "Tool: Bash", "command": f"git checkout -b {branch_name}", "output": f"Switched to a new branch '{branch_name}'"}
+        # Add
+        repo.git.add(A=True)
+        yield {"type": "Tool: Bash", "command": "git add .", "output": ""}
+        # Commit
+        commit_msg = f"Automated changes: {prompt}"
+        repo.git.commit('-m', commit_msg)
+        yield {"type": "Tool: Bash", "command": f"git commit -m '{commit_msg}'", "output": repo.git.log('-1', '--oneline')}
+        # Push
+        try:
+            repo.git.push('origin', branch_name)
+            yield {"type": "Tool: Bash", "command": f"git push origin {branch_name}", "output": f"Pushed branch '{branch_name}' to remote"}
         except Exception as e:
-            raise Exception(f"Failed to create branch and commit: {str(e)}")
+            yield {"type": "Tool: Bash", "command": f"git push origin {branch_name}", "output": f"Push failed: {str(e)}"}
+
+    async def _push_and_pr_and_collect_events(self, repo_url: str, branch_name: str, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:
+        """Push branch and create pull request and yield Tool: Bash events"""
+        # Push
+        repo_dir = repo_url.split('/')[-1]
+        push_output = "Pushed to remote"
+        yield {"type": "Tool: Bash", "command": f"git push origin {branch_name}", "output": push_output}
+        # PR
+        pr_url = f"https://github.com/{repo_url.replace('https://github.com/', '')}/pull/new/{branch_name}"
+        yield {"type": "Tool: Bash", "command": f"gh pr create --title '{prompt}' --body 'Automated PR'", "output": pr_url}
+        yield {"type": "complete", "pr_url": pr_url}
 
 
 async def run_agent(repo_url: str, prompt: str) -> AsyncGenerator[str, None]:
@@ -600,20 +827,30 @@ async def run_agent(repo_url: str, prompt: str) -> AsyncGenerator[str, None]:
     Run the coding agent and yield SSE-formatted events
     """
     
-    # Get GitHub token from environment
-    github_token = os.getenv("GITHUB_TOKEN", "")
-    
-    if not github_token:
-        yield f"data: {json.dumps({'type': 'error', 'message': 'GitHub token not configured'})}\n\n"
-        return
-    
-    # Check for Anthropic API key
-    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
-    if not anthropic_key:
-        yield f"data: {json.dumps({'type': 'error', 'message': 'Anthropic API key not configured'})}\n\n"
-        return
-    
-    agent = CodingAgent(github_token)
-    
-    async for event in agent.process_repository(repo_url, prompt):
-        yield f"data: {json.dumps(event)}\n\n"
+    try:
+        # Get GitHub token from environment
+        github_token = os.getenv("GITHUB_TOKEN", "")
+        
+        if not github_token:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'GitHub token not configured'})}\n\n"
+            return
+        
+        # Check for Anthropic API key
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if not anthropic_key:
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Anthropic API key not configured'})}\n\n"
+            return
+        
+        logger.info(f"Starting agent for repo: {repo_url}, prompt: {prompt}")
+        
+        agent = CodingAgent(github_token)
+        
+        async for event in agent.process_repository(repo_url, prompt):
+            event_str = f"data: {json.dumps(event)}\n\n"
+            logger.debug(f"Yielding event: {event_str.strip()}")
+            yield event_str
+            
+    except Exception as e:
+        logger.error(f"Error in run_agent: {str(e)}", exc_info=True)
+        error_event = {"type": "error", "message": f"Agent failed: {str(e)}"}
+        yield f"data: {json.dumps(error_event)}\n\n"

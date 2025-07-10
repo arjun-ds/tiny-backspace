@@ -1,6 +1,7 @@
 import modal
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, HttpUrl
 import asyncio
 import json
@@ -11,6 +12,15 @@ app = modal.App("backspace-agent")
 
 # Create FastAPI instance
 web_app = FastAPI(title="Backspace Coding Agent")
+
+# Add CORS middleware
+web_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Request model
 class CodeRequest(BaseModel):
@@ -35,6 +45,8 @@ async def create_code_changes(request: CodeRequest):
     if not repo_url.startswith("https://github.com/"):
         raise HTTPException(status_code=400, detail="Only GitHub repositories are supported")
     
+    print(f"Starting code changes for repo: {repo_url}, prompt: {request.prompt}")
+    
     # Stream the coding agent's progress
     return StreamingResponse(
         run_agent(repo_url, request.prompt),
@@ -42,7 +54,9 @@ async def create_code_changes(request: CodeRequest):
         headers={
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable buffering for nginx
+            "X-Accel-Buffering": "no",  # Disable buffering for nginx
+            "Access-Control-Allow-Origin": "*",  # Allow CORS for testing
+            "Access-Control-Allow-Headers": "*"
         }
     )
 

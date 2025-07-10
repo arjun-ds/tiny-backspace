@@ -272,7 +272,7 @@ def main():
     
     base_url = sys.argv[1].rstrip('/')
     repo_url = "https://github.com/arjun-ds/tiny-backspace"
-    prompt = "Create a simple test.txt file with the content 'Test file created successfully'"
+    prompt = "Add comprehensive docstrings and comments to all Python files. For each function and class, add clear docstrings explaining their purpose, parameters, and return values. Add inline comments for complex logic sections. Make the code more readable and well-documented."
     timeout = 300
     verbose = True
     debug = False
