@@ -12,6 +12,9 @@ app = modal.App("backspace-agent")
 # Create FastAPI instance
 web_app = FastAPI(title="Backspace Coding Agent")
 
+def hello():
+    print("Hello!")
+
 # Request model
 class CodeRequest(BaseModel):
     repoUrl: HttpUrl
