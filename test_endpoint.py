@@ -7,7 +7,15 @@ import json
 import sys
 import time
 import urllib.parse
+import logging
 from typing import Optional
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 # Check for requests dependency
 try:
@@ -50,11 +58,11 @@ def test_endpoint(
     start_time = time.time()
     
     if verbose:
-        print(f"Testing endpoint: {base_url}")
-        print(f"Repository: {repo_url}")
-        print(f"Prompt: {prompt}")
-        print(f"Timeout: {timeout}s")
-        print("-" * 50)
+        logger.info(f"Testing endpoint: {base_url}")
+        logger.info(f"Repository: {repo_url}")
+        logger.info(f"Prompt: {prompt}")
+        logger.info(f"Timeout: {timeout}s")
+        logger.info("-" * 50)
     
     try:
         # Test health check first
@@ -249,7 +257,7 @@ def _save_results(results: dict, filename: str = "test_results.json"):
             json.dump(results, f, indent=2)
         print(f"Results saved to {filename}")
     except Exception as e:
-        print(f"Could not save results: {e}")
+        logger.error(f"Could not save results: {e}")
 
 def main():
     if len(sys.argv) < 2:
