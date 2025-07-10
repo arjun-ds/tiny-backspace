@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+import logging
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 """
 Test script for the Modal Coding Agent endpoint
 """
@@ -49,6 +58,7 @@ def test_endpoint(
     
     start_time = time.time()
     
+    logger.info(f"Testing endpoint: {base_url}")
     if verbose:
         print(f"Testing endpoint: {base_url}")
         print(f"Repository: {repo_url}")
@@ -108,7 +118,8 @@ def test_endpoint(
             if time.time() - stream_start > timeout:
                 results["error"] = f"Stream timeout after {timeout}s"
                 if verbose:
-                    print(f"[TIMEOUT] Stream exceeded {timeout}s")
+                    logger.warning(f"Stream exceeded timeout of {timeout}s")
+            print(f"[TIMEOUT] Stream exceeded {timeout}s")
                 return results
                 
             if line.startswith("data: "):
@@ -185,9 +196,11 @@ def test_endpoint(
                                 print(f"    Full event data: {json.dumps(data, indent=2)}")
                         
                 except json.JSONDecodeError:
+                    logger.error(f"Invalid JSON in SSE stream: {line}")
                     if verbose:
                         print(f"Invalid JSON: {line}")
                 except Exception as e:
+                    logger.error(f"Error parsing SSE event: {e}")
                     if verbose:
                         print(f"Error parsing event: {e}")
                         print(f"Raw line: {line}")
