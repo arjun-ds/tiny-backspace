@@ -53,6 +53,20 @@ class CodingAgent:
             raise ValueError("ANTHROPIC_API_KEY environment variable not set")
         self.anthropic_client = anthropic.Anthropic(api_key=anthropic_token)
     
+    def _update_langsmith_run_error(self, run, error: Exception):
+        """Helper to update LangSmith run with error info"""
+        if langsmith_client and run:
+            try:
+                langsmith_client.update_run(
+                    run.id,
+                    outputs={
+                        "result": "error",
+                        "error": str(error)
+                    }
+                )
+            except Exception as ex:
+                logger.warning(f"Failed to update LangSmith run: {ex}")
+    
     async def process_repository(
         self, 
         repo_url: str, 
@@ -239,32 +253,12 @@ class CodingAgent:
                     
                 except Exception as e:
                     # Complete LangSmith run with error
-                    if langsmith_run:
-                        try:
-                            langsmith_client.update_run(
-                                langsmith_run.id,
-                                outputs={
-                                    "result": "error",
-                                    "error": str(e)
-                                }
-                            )
-                        except Exception as ex:
-                            logger.warning(f"Failed to update LangSmith run: {ex}")
+                    self._update_langsmith_run_error(langsmith_run, e)
                     yield {"type": "error", "message": f"Workflow failed: {str(e)}"}
                 
             except Exception as e:
                 # Complete LangSmith run with error
-                if langsmith_run:
-                    try:
-                        langsmith_client.update_run(
-                            langsmith_run.id,
-                            outputs={
-                                "result": "error",
-                                "error": str(e)
-                            }
-                        )
-                    except Exception as ex:
-                        logger.warning(f"Failed to update LangSmith run: {ex}")
+                self._update_langsmith_run_error(langsmith_run, e)
                 yield {"type": "error", "message": f"Error processing repository: {str(e)}"}
     
     async def _create_pull_request(self, repo_url: str, branch_name: str, prompt: str) -> str:
@@ -323,7 +317,6 @@ If creating a new file, return empty list: {{"relevant_files": []}}"""
             logger.info(f"File selection response: {response_text[:200]}...")
             
             # Parse JSON response - use the same robust parsing as _simple_claude_analysis
-            import re
             json_text = None
             
             # Try to extract from markdown code blocks
@@ -384,6 +377,8 @@ SIMPLE RULES:
 3. To replace: use the exact text from the file
 4. If unsure, just append to the end of the file
 5. If no files provided, create a new file
+6. If the requested code/function doesn't exist in the file, create it instead of trying to replace
+7. Always verify text exists before using it in old_str for replacement
 
 IMPORTANT: Return ONLY the JSON below, nothing else. No explanations, no other JSON objects.
 
@@ -400,7 +395,8 @@ IMPORTANT: Return ONLY the JSON below, nothing else. No explanations, no other J
 Examples:
 - Add a function: {{"file": "main.py", "old_str": "", "new_str": "\\ndef my_function():\\n    return True\\n"}}
 - Add a comment: {{"file": "main.py", "old_str": "", "new_str": "\\n# This is my comment\\n"}}
-- Replace text: {{"file": "main.py", "old_str": "old text", "new_str": "new text"}}"""
+- Replace text: {{"file": "main.py", "old_str": "old text", "new_str": "new text"}}
+- Function doesn't exist: {{"file": "main.py", "old_str": "", "new_str": "\\ndef calculate(a, b):\\n    \"\"\"Add two numbers together.\"\"\"\\n    return a + b\\n"}}"""
 
         # Create LangSmith run for Claude analysis if enabled
         claude_run = None
@@ -437,7 +433,6 @@ Examples:
             logger.info(f"Raw Claude response: {response_text[:500]}...")
             
             # Parse JSON response - handle various formats robustly
-            
             json_text = None
             
             # Method 1: Try to extract from markdown code blocks
@@ -503,38 +498,12 @@ Examples:
             logger.error(f"Claude analysis failed: {str(e)}")
             
             # Update LangSmith run with error
-            if claude_run:
-                try:
-                    langsmith_client.update_run(
-                        claude_run.id,
-                        outputs={
-                            "error": str(e),
-                            "success": False
-                        }
-                    )
-                except Exception as ex:
-                    logger.warning(f"Failed to update Claude LangSmith run: {ex}")
+            self._update_langsmith_run_error(claude_run, e)
             
             return {"edits": []}
 
     def _get_repo_structure(self, repo_path: str) -> list:
-        """Get list of all files in the repo, prioritizing based on README analysis"""
-        # First, look for README files to understand project structure
-        readme_content = None
-        readme_files = ['README.md', 'README.rst', 'README.txt', 'readme.md', 'Readme.md']
-        
-        for readme in readme_files:
-            readme_path = os.path.join(repo_path, readme)
-            if os.path.exists(readme_path):
-                try:
-                    with open(readme_path, 'r', encoding='utf-8') as f:
-                        readme_content = f.read()
-                        logger.info(f"Found README file: {readme}")
-                        break
-                except Exception as e:
-                    logger.warning(f"Could not read {readme}: {e}")
-        
-        # Get all files (not just Python)
+        """Get list of all non-binary files in the repo"""
         all_files = []
         # Common binary/non-text extensions to skip
         binary_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.pdf', 
@@ -552,25 +521,6 @@ Examples:
                 rel_path = os.path.relpath(os.path.join(root, file), repo_path)
                 all_files.append(rel_path)
         
-        # If README exists, try to identify main files mentioned
-        if readme_content:
-            # Look for files mentioned in README
-            important_files = []
-            for file in all_files:
-                # Check if file is mentioned in README (with or without extension)
-                file_base = os.path.splitext(os.path.basename(file))[0]
-                if file in readme_content or file_base in readme_content:
-                    important_files.append(file)
-                    logger.info(f"File {file} found in README - marking as important")
-            
-            # Prioritize: important files first, then others
-            # Also limit to reasonable number of files to avoid memory issues
-            prioritized = important_files + [f for f in all_files if f not in important_files]
-            
-            # Return all files - we'll limit AFTER Claude selects relevant ones
-            return prioritized
-        
-        # No README found, return all files
         return all_files
 
     def _read_file(self, repo_path: str, filename: str) -> str:
