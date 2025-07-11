@@ -1,4 +1,6 @@
-"""
+""" 
+# Simple comment: This module implements a coding agent for automated code changes
+
 Coding agent implementation for Backspace
 """
 
