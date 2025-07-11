@@ -15,7 +15,7 @@ The service is already deployed and configured with my GitHub PAT.
 **Option 1: Use the Web UI**
 
 - Go to https://arjun-ds--backspace-agent-modal-asgi.modal.run
-- Enter a https://github.com/arjun-ds/tiny-backspace as the repository URL
+- Enter `https://github.com/arjun-ds/tiny-backspace` as the repository URL (only this repo works with my deployment)
 - Enter a coding prompt
 - Click submit to see real-time progress
 
@@ -40,7 +40,7 @@ python test_endpoint.py https://arjun-ds--backspace-agent-modal-asgi.modal.run \
 - Repository URL: `https://github.com/arjun-ds/tiny-backspace`
 - Prompt: `Add a helpful comment explaining what the main function does`
 
-**Important**: The deployed service will create PRs on my test repository (`arjun-ds/tiny-backspace`) using my GitHub account. You can view the created PRs but won't have merge access.
+**Important**: My deployed service is restricted to only work with `arjun-ds/tiny-backspace` due to GitHub PAT permissions. It will create PRs using my GitHub account. You can view the created PRs but won't have merge access.
 
 The API returns a Server-Sent Events (SSE) stream showing:
 

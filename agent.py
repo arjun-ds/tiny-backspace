@@ -68,6 +68,41 @@ class CodingAgent:
         
         logger.info(f"Processing repository: {repo_url} with prompt: {prompt}")
         
+        # Check repository exists and is accessible
+        try:
+            yield {"type": "AI Message", "message": "Checking repository access..."}
+            github_repo = self.github.get_repo(f"{owner}/{repo_name}")
+            
+            # For public repos, permissions is often None. The only reliable way to check
+            # write access is to try creating a branch reference
+            try:
+                # Try to get an existing branch to test our access
+                default_branch = github_repo.default_branch
+                base_sha = github_repo.get_branch(default_branch).commit.sha
+                test_timestamp = int(time.time())
+                test_ref = f"refs/heads/access-test-{test_timestamp}"
+                
+                # Try to create a test branch - this will fail if no write access
+                github_repo.create_git_ref(ref=test_ref, sha=base_sha)
+                
+                # If we got here, we have write access - delete the test branch
+                ref = github_repo.get_git_ref(f"heads/access-test-{test_timestamp}")
+                ref.delete()
+                
+                yield {"type": "AI Message", "message": "Repository access confirmed"}
+            except Exception as perm_error:
+                if "404" in str(perm_error) or "403" in str(perm_error):
+                    yield {"type": "error", "message": f"No write access to {repo_url}. Please ensure your GitHub token has push permissions to this repository."}
+                    return
+                else:
+                    # Some other error - maybe rate limit or network issue
+                    raise perm_error
+                    
+        except Exception as e:
+            logger.error(f"Failed to access repository: {str(e)}")
+            yield {"type": "error", "message": f"Cannot access repository: {str(e)}. Please check the repository URL and your GitHub token permissions."}
+            return
+        
         # Start LangSmith run if enabled
         langsmith_run = None
         if langsmith_client:

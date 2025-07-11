@@ -38,8 +38,7 @@ async def create_code_changes(request: CodeRequest):
     """Run the agent and format output like test_endpoint.py does"""
     from agent import run_agent
     
-    # Hardcode the repo URL as requested
-    repo_url = "https://github.com/arjun-ds/tiny-backspace"
+    repo_url = str(request.repoUrl)
     prompt = request.prompt
     
     async def format_like_test_endpoint():
@@ -75,8 +74,7 @@ async def create_code_changes_api(request: CodeRequest):
 @web_app.post("/api/code-debug")
 async def create_code_changes_debug(request: CodeRequest):
     """Debug endpoint that shows step-by-step what's happening"""
-    # Hardcode the repo URL as requested
-    repo_url = "https://github.com/arjun-ds/tiny-backspace"
+    repo_url = str(request.repoUrl)
     prompt = request.prompt
     
     async def debug_stream():
