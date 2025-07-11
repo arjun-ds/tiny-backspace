@@ -2,6 +2,13 @@
 
 A streaming API service that automatically creates GitHub pull requests from natural language descriptions. Built with FastAPI, Modal sandboxing, and Claude 3.5 Sonnet.
 
+## ℹ️ Test Repository
+
+This repository serves as a testing ground for the Backspace coding agent. It allows users to experiment with the agent's capabilities in making automated code changes through natural language instructions. The agent can analyze codebases, implement requested modifications, and create pull requests - all driven by plain English descriptions.
+
+Please note that this is a test environment and changes made here are for demonstration purposes. For production use, you should deploy your own instance with appropriate security configurations.
+
+
 ## 🚀 Live Demo
 
 **Public URL**: https://arjun-ds--backspace-agent-modal-asgi.modal.run
