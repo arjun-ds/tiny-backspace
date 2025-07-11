@@ -26,6 +26,33 @@ def test_endpoint(
 ) -> dict:
     """Test the /code endpoint with SSE streaming
     
+    This function sends a request to the coding agent endpoint and processes the Server-Sent Events (SSE)
+    stream response. It monitors the stream for completion or errors and validates any pull request URLs
+    that are generated.
+
+    Args:
+        base_url (str): Base URL of the deployed Modal app endpoint
+        repo_url (str, optional): GitHub repository URL to test modifications on. 
+            Defaults to requests repository.
+        prompt (str, optional): Coding instruction prompt to send to the agent.
+            Defaults to adding a docstring.
+        timeout (int, optional): Maximum time in seconds to wait for stream completion.
+            Defaults to 300 seconds.
+        verbose (bool, optional): Whether to print detailed progress messages.
+            Defaults to True.
+
+    Returns:
+        dict: Test results containing:
+            - success (bool): Whether the test completed successfully
+            - health_check (bool): If initial health check passed
+            - sse_connection (bool): If SSE stream connected
+            - events_received (int): Number of events received
+            - pr_url (str, optional): URL of created pull request 
+            - error (str, optional): Error message if failed
+            - duration (float): Test duration in seconds
+    """
+    """Test the /code endpoint with SSE streaming
+    
     Args:
         base_url: Base URL of the deployed Modal app
         repo_url: GitHub repository URL to test with
@@ -158,6 +185,15 @@ def test_endpoint(
         results["duration"] = time.time() - start_time
 
 def _validate_pr_url(pr_url: str, verbose: bool = True) -> bool:
+    """Validate that a GitHub pull request URL is accessible
+
+    Args:
+        pr_url (str): Pull request URL to validate
+        verbose (bool, optional): Whether to print validation details. Defaults to True.
+
+    Returns:
+        bool: True if URL is valid and accessible, False otherwise
+    """
     """Validate that PR URL is accessible"""
     try:
         if not pr_url.startswith("https://github.com/"):
@@ -181,6 +217,12 @@ def _validate_pr_url(pr_url: str, verbose: bool = True) -> bool:
         return False
 
 def _save_results(results: dict, filename: str = "test_results.json"):
+    """Save test results to a JSON file
+
+    Args:
+        results (dict): Test results dictionary to save
+        filename (str, optional): Output JSON filename. Defaults to "test_results.json".
+    """
     """Save test results to file"""
     try:
         with open(filename, 'w') as f:
@@ -190,6 +232,20 @@ def _save_results(results: dict, filename: str = "test_results.json"):
         print(f"Could not save results: {e}")
 
 def main():
+    """Main entry point for test script
+    
+    Parses command line arguments and runs endpoint testing. Supports options for:
+    - Custom repository URL
+    - Custom prompt
+    - Timeout duration
+    - Verbosity levels
+    - Results saving
+    - Authentication testing
+    
+    Exit codes:
+        0: Test completed successfully 
+        1: Test failed or invalid arguments
+    """
     if len(sys.argv) < 2:
         print("Usage: python test_endpoint.py <base_url> [options]")
         print("Options:")
