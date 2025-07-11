@@ -191,25 +191,25 @@ def _save_results(results: dict, filename: str = "test_results.json"):
 
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python test_endpoint.py <base_url> [options]")
+        print("Usage: python test_endpoint.py <base_url> --repo <url> --prompt <text> [options]")
+        print("Required:")
+        print("  --repo <url>      GitHub repository URL")
+        print("  --prompt <text>   Coding task to perform")
         print("Options:")
-        print("  --repo <url>      Custom repository URL")
-        print("  --prompt <text>   Custom prompt")
         print("  --timeout <sec>   Timeout in seconds (default: 300)")
         print("  --debug           Maximum verbosity with all event details")
         print("  --save-results    Save results to JSON file")
         print("  --auth-test       Test authentication without making changes")
         print()
         print("Examples:")
-        print("  python test_endpoint.py https://your-app.modal.run")
-        print("  python test_endpoint.py https://your-app.modal.run --debug")
-        print("  python test_endpoint.py https://your-app.modal.run --repo https://github.com/owner/repo")
-        print("  python test_endpoint.py https://your-app.modal.run --save-results")
+        print("  python test_endpoint.py https://your-app.modal.run --repo https://github.com/owner/repo --prompt 'Add docstrings'")
+        print("  python test_endpoint.py https://your-app.modal.run --repo https://github.com/owner/repo --prompt 'Fix bugs' --debug")
+        print("  python test_endpoint.py https://your-app.modal.run --repo https://github.com/owner/repo --auth-test")
         sys.exit(1)
     
     base_url = sys.argv[1].rstrip('/')
-    repo_url = "https://github.com/arjun-ds/tiny-backspace"
-    prompt = "Add comprehensive docstrings and comments to all Python files. For each function and class, add clear docstrings explaining their purpose, parameters, and return values. Add inline comments for complex logic sections. Make the code more readable and well-documented."
+    repo_url = None
+    prompt = None
     timeout = 300
     verbose = True
     debug = False
@@ -238,11 +238,25 @@ def main():
             i += 1
         elif arg == "--auth-test":
             auth_test = True
-            prompt = "Just analyze the code structure, don't make any changes"
             i += 1
         else:
             print(f"Unknown argument: {arg}")
             sys.exit(1)
+    
+    # Validate required arguments
+    if not repo_url:
+        print("Error: Repository URL is required")
+        print("Use --repo <url> to specify a GitHub repository")
+        sys.exit(1)
+    
+    if not prompt and not auth_test:
+        print("Error: Prompt is required")
+        print("Use --prompt <text> to specify what changes to make")
+        sys.exit(1)
+    
+    # Set default prompt for auth test
+    if auth_test and not prompt:
+        prompt = "Just analyze the code structure, don't make any changes"
     
     # Run the test
     results = test_endpoint(base_url, repo_url, prompt, timeout, verbose)
