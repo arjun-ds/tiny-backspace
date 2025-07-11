@@ -8,3 +8,4 @@ PyGithub
 python-dotenv
 ddtrace
 anthropic
+langsmith

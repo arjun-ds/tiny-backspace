@@ -53,7 +53,7 @@ def test_endpoint(
     
     try:
         # Test health check first
-        health_response = requests.get(f"{base_url}/", timeout=10)
+        health_response = requests.get(f"{base_url}/healthz", timeout=10)
         results["health_check"] = health_response.status_code == 200
         
         if not results["health_check"]:
