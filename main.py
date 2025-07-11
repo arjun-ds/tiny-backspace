@@ -147,7 +147,7 @@ async def create_code_changes_debug(request: CodeRequest):
         }
     )
 
-# Modal ASGI app decorator
+# Modal ASGI app decorator - Deploys the FastAPI application on Modal with required configuration
 @app.function(
     image=modal.Image.debian_slim()
         .pip_install_from_requirements("requirements.txt")
