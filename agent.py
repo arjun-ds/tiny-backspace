@@ -1206,3 +1206,27 @@ async def run_agent(repo_url: str, prompt: str) -> AsyncGenerator[str, None]:
         logger.error(f"Error in run_agent: {str(e)}", exc_info=True)
         error_event = {"type": "error", "message": f"Agent failed: {str(e)}"}
         yield f"data: {json.dumps(error_event)}\n\n"
+
+def get_python_version_info() -> dict:
+    """
+    This utility function provides detailed information about the Python runtime environment. It serves
+    as a diagnostic tool that can be useful when debugging environment-specific issues or ensuring
+    compatibility across different Python versions. The function collects information about the Python
+    version, implementation details, and compiler used to build Python. This can be particularly
+    helpful when troubleshooting issues that might arise from version mismatches or platform-specific
+    behaviors in the coding agent's execution environment.
+    
+    Returns:
+        dict: A dictionary containing Python version information including:
+            - version: The Python version string
+            - implementation: The Python implementation (e.g., CPython)
+            - compiler: The compiler used to build Python
+    """
+    import sys
+    import platform
+    
+    return {
+        "version": sys.version,
+        "implementation": platform.python_implementation(),
+        "compiler": platform.python_compiler()
+    }
