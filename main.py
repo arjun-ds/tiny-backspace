@@ -155,8 +155,8 @@ async def create_code_changes_debug(request: CodeRequest):
         .env({
             "LOG_LEVEL": "INFO", 
             "DD_TRACE_ENABLED": "false",
-            "LANGSMITH_ENABLED": "false",
-            "LANGSMITH_TRACING": "false",
+            "LANGSMITH_ENABLED": "true",
+            "LANGSMITH_TRACING": "true",
             "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
             "LANGSMITH_PROJECT": "backspace-agent"
         })
@@ -165,7 +165,8 @@ async def create_code_changes_debug(request: CodeRequest):
         .add_local_dir("../web/out", "/root/web/out"),
     secrets=[
         modal.Secret.from_name("github-token"),
-        modal.Secret.from_name("anthropic-api-key")
+        modal.Secret.from_name("anthropic-api-key"),
+        modal.Secret.from_name("langsmith-api-key")
     ],
     timeout=300
 )
