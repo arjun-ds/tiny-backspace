@@ -1,135 +1,225 @@
-# Modal Coding Agent
+# Backspace Coding Agent
 
-A sandboxed AI agent that automatically creates pull requests from natural language descriptions.
+A streaming API service that automatically creates GitHub pull requests from natural language descriptions. Built with FastAPI, Modal sandboxing, and Claude 3.5 Sonnet.
 
-## Project Structure
+## 🚀 Live Demo
 
-- **main.py**: FastAPI app entrypoint (SSE streaming API)
-- **agent.py**: Core coding agent logic
-- **test_endpoint.py**: Test script for the deployed endpoint
-- **core/**: Event system, SSE formatting, streaming helpers, security, errors
-- **requirements.txt**: Python dependencies
+**Public URL**: https://arjun-ds--backspace-agent-modal-asgi.modal.run
 
-## Key Features
+## 📋 Deliverables
 
-- Real-time Server-Sent Events (SSE) streaming
-- Modal serverless sandboxing
-- Claude-4 Opus AI code analysis and modification
-- GitHub PR automation
-- Secure, event-driven architecture
+### 1. How to Hit the Public URL
 
-## Setup
+The service is already deployed and configured with my GitHub PAT.
 
-### Prerequisites
-1. Python 3.8+
-2. Modal account (https://modal.com)
-3. GitHub Personal Access Token
+**Option 1: Use the Web UI**
 
-### Installation
+- Go to https://arjun-ds--backspace-agent-modal-asgi.modal.run
+- Enter a https://github.com/arjun-ds/tiny-backspace as the repository URL
+- Enter a coding prompt
+- Click submit to see real-time progress
+
+**Option 2: Use the Test Script**
+
 ```bash
-git clone <repo-url>
-cd modal-coding-agent
+# Clone this repo first
+git clone https://github.com/arjun-ds/backspace-agent.git
+cd backspace-agent
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Run the test script with custom prompt
+python test_endpoint.py https://arjun-ds--backspace-agent-modal-asgi.modal.run \
+  --repo https://github.com/arjun-ds/tiny-backspace \
+  --prompt "Add a helpful comment explaining what the main function does"
+```
+
+**Example Input:**
+
+- Repository URL: `https://github.com/arjun-ds/tiny-backspace`
+- Prompt: `Add a helpful comment explaining what the main function does`
+
+**Important**: The deployed service will create PRs on my test repository (`arjun-ds/tiny-backspace`) using my GitHub account. You can view the created PRs but won't have merge access.
+
+The API returns a Server-Sent Events (SSE) stream showing:
+
+- Repository cloning progress
+- File analysis (`Tool: Read` events)
+- AI planning messages (`AI Message` events)
+- Code changes being made (`Tool: Edit` events)
+- Git operations (`Tool: Bash` events)
+- Final PR URL
+
+### 2. How to Run It Locally (Deploy Your Own Instance)
+
+If you want to deploy your own instance to work with your own repositories:
+
+#### Prerequisites
+
+1. **Python 3.8+**
+2. **Modal Account** - Sign up at https://modal.com
+3. **Your Own GitHub Personal Access Token (PAT)**
+   - Go to https://github.com/settings/tokens/new
+   - Select scopes: `repo` (Full control of private repositories)
+   - Copy the generated token
+4. **Your Own Anthropic API Key**
+   - Sign up at https://www.anthropic.com
+   - Go to https://console.anthropic.com/settings/keys
+   - Create a new API key
+
+#### Step-by-Step Setup
+
+```bash
+# 1. Clone this repository
+git clone https://github.com/arjun-ds/backspace-agent.git
+cd backspace-agent
+
+# 2. Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Install and authenticate Modal
 modal token new
-```
+# This will open a browser - log in with your Modal account
 
-### Configuration
-```bash
-modal secret create github-token GITHUB_TOKEN=<your_pat>
-modal secret create anthropic-api-key ANTHROPIC_API_KEY=<your_key>
-```
+# 5. Set up Modal secrets with YOUR credentials
+modal secret create github-token GITHUB_TOKEN=<your-github-pat>
+modal secret create anthropic ANTHROPIC_API_KEY=<your-anthropic-key>
 
-## Usage
+# 6. Build the frontend (Next.js)
+cd ../web
+npm install
+npm run build  # Creates the 'out' directory
+cd ../backspace-agent
 
-### Deploy to Modal
-```bash
+# 7. Deploy to Modal
 modal deploy main.py
-```
-This will output a public URL like: `https://your-app.modal.run`
 
-### API Endpoint
-**POST /code**
+# 8. Test your deployment
+# Your deployment will be available at a URL like:
+# https://your-username--backspace-agent-modal-asgi.modal.run
+
+# Use the same test script with YOUR Modal URL:
+python test_endpoint.py https://your-username--backspace-agent-modal-asgi.modal.run \
+  --repo https://github.com/your-username/your-repo \
+  --prompt "Your coding task here"
+```
+
+### 3. Which Coding Agent Approach I Chose and Why
+
+The agent follows this workflow:
+
+1. **Intelligent File Selection**:
+
+   - Reads README files first to understand project structure
+   - Prioritizes files mentioned in documentation
+   - Limits to 20 files (1MB each) for memory efficiency
+
+2. **Robust JSON Parsing**:
+
+   - Uses regex-based extraction to handle various response formats
+   - Validates JSON structure before processing
+   - No fallback mechanisms - fails cleanly on errors
+
+3. **Streaming Architecture**:
+   - Real-time SSE updates for transparency
+   - Event-driven design matching the spec format
+   - Comprehensive logging with optional LangSmith observability
+
+## 🏗️ Architecture
+
+### Core Components
+
+- **main.py**: FastAPI server with SSE streaming endpoint
+- **agent.py**: Coding agent logic with Claude integration
+- **Modal**: Provides both web hosting and sandboxed execution environment
+
+### Security Features
+
+- Runs in Modal's isolated containers
+- GitHub PAT stored as Modal secret (never exposed)
+- Only supports public repositories
+- Automatic cleanup of temporary files
+
+### Event Stream Format
+
 ```json
-{
-  "repoUrl": "https://github.com/owner/repo",
-  "prompt": "Add input validation to all POST endpoints"
-}
+data: {"type": "Tool: Read", "filepath": "app.py"}
+data: {"type": "AI Message", "message": "Analyzing codebase..."}
+data: {"type": "Tool: Edit", "filepath": "app.py", "old_str": "...", "new_str": "..."}
+data: {"type": "Tool: Bash", "command": "git add .", "output": ""}
+data: {"type": "complete", "pr_url": "https://github.com/owner/repo/pull/123"}
 ```
-Response: Server-Sent Events stream with real-time updates
 
-### Example Usage
+## 📊 Observability
+
+The agent includes comprehensive logging throughout the workflow:
+
+- Repository cloning status
+- File analysis progress
+- AI decision making
+- Git operations
+- Error tracking
+
+### LangSmith Integration (Bonus Feature)
+
+The agent includes optional LangSmith integration for advanced observability:
+
+**What it provides:**
+
+- Real-time tracing of the agent's thinking process
+- Detailed view of Claude API calls with prompts and responses
+- Performance metrics for each step (latency, token usage)
+- Visual trace explorer to debug issues
+- Helps identify why certain changes were made or skipped
+
+**To enable:**
+
 ```bash
-curl -X POST https://your-app.modal.run/code \
-  -H "Content-Type: application/json" \
-  -d '{
-    "repoUrl": "https://github.com/owner/repository",
-    "prompt": "Add error handling to all API endpoints"
-  }'
+# Sign up at https://www.langchain.com/langsmith
+modal secret create langsmith LANGSMITH_API_KEY=<your-key> LANGSMITH_ENABLED=true LANGSMITH_PROJECT=backspace-agent
 ```
 
-## Testing
-```bash
-python test_endpoint.py https://your-app.modal.run
-```
+Once enabled, you can view traces at https://smith.langchain.com for real-time telemetry and insights into the agent's decision-making process.
 
-## Implementation Status & TODOs
-- [x] FastAPI SSE endpoint
-- [x] Modal deployment
-- [x] GitHub repo cloning
-- [x] Anthropic Claude-4 Opus integration
-- [x] Code analysis/modification workflow
-- [x] Secure subprocess validation
-- [x] Git branching/commit/PR
-- [ ] Production monitoring
-- [ ] Enhanced security hardening
-- [ ] Comprehensive error handling
+## 🛠️ Troubleshooting
 
-### High Priority TODOs
-- [ ] Fix SSE output to match spec (Tool: Read/Edit/Bash, AI Message)
-- [ ] Stream agent thinking process in real-time
-- [ ] Fix agent timeout issues
-- [ ] Test multi-file changes
+### Common Issues
 
-### Medium/Low Priority
-- [ ] Enhance error cycling visibility
-- [ ] Implement observability (Datadog, metrics)
-- [ ] Improve code quality, docstrings, error messages
-- [ ] Add input validation, rate limiting, security logging
-- [ ] Handle GitHub API rate limits gracefully
-- [ ] Add comprehensive test suite
-- [ ] Performance optimizations (repo caching, parallel analysis)
-- [ ] Feature additions (private repos, multiple LLMs, webhooks)
-- [ ] Refactor monolithic agent.py
+1. **"GitHub token not configured"**
 
-## Architecture & Migration
+   - Ensure you've run: `modal secret create github-token GITHUB_TOKEN=<pat>`
 
-- **V2**: Event-driven, real-time streaming, proper error handling, secure credential management, clean separation of concerns
-- **V1**: Monolithic, synchronous, poor error handling, credentials in URLs
-- **Migration**: See `ARCHITECTURE.md` for full details
+2. **"Anthropic API key not configured"**
 
-## Security Considerations
-- Only public GitHub repos supported
-- Code runs in Modal sandboxes
-- GitHub PAT stored as Modal secret
-- Input validation on all endpoints
-- Subprocess isolation for code validation
-- (See `ARCHITECTURE.md` for advanced security notes)
+   - Ensure you've run: `modal secret create anthropic ANTHROPIC_API_KEY=<key>`
 
-## Quick Troubleshooting
-- **SSE not streaming?**
-  - Check Modal logs for errors
-  - Ensure agent is using streaming API correctly
-- **Timeouts?**
-  - Increase Modal function timeout
-  - Chunk large operations
-- **PR not created?**
-  - Check GitHub PAT permissions
-  - See logs for error details
-- **Agent fails on analysis?**
-  - Ensure Anthropic API key is valid
-  - See logs for stack traces
+3. **Modal deployment fails**
 
-## Further Reading
-- See `ARCHITECTURE.md` for design, migration, and event system details
-- See `CODE_REVIEW_AND_STATUS.md` for review findings, open issues, and implementation status
-- See `CLAUDE.md` for LLM/AI-specific notes
+   - Check you're authenticated: `modal token`
+   - Try redeploying: `modal deploy main.py --force`
+
+4. **PR creation fails**
+
+   - Verify your GitHub PAT has `repo` scope
+   - Check the repository is public
+   - Ensure you have push access to the repository
+
+5. **Agent timeout**
+   - Large repositories may take longer to process
+   - The agent limits to 20 files for efficiency
+
+## 📝 Notes
+
+- Only public GitHub repositories are supported
+- The agent creates PRs under your GitHub account
+- Each request runs in an isolated Modal container
+- File size limit: 1MB per file, max 20 files per repository
+
+## 🎥 Demo Video
+
+[Optional: Add link to demo video here]
