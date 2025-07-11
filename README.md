@@ -235,4 +235,4 @@ Once enabled, you can view traces at https://smith.langchain.com for real-time t
 
 ## 🎥 Demo Video
 
-[Optional: Add link to demo video here]
+[Watch the demo video here](https://drive.google.com/file/d/115eFvUb5WMUKkShoGCIyjsiooHEWtJrA/view?usp=sharing) - Shows the full flow from API call to PR creation
