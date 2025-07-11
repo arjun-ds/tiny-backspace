@@ -145,38 +145,30 @@ class CodingAgent:
                 
                 yield {"type": "AI Message", "message": "Repository cloned successfully"}
                                 
-                # Analyze codebase
-                yield {"type": "AI Message", "message": "Analyzing codebase structure..."}
-                                
-                # List all Python files as an example
-                py_files = []
-                for root, dirs, files in os.walk(temp_dir):
-                    # Skip .git directory
-                    if '.git' in root:
-                        continue
-                    for file in files:
-                        if file.endswith('.py'):
-                            file_path = os.path.join(root, file)
-                            py_files.append(file_path)
-                            rel_path = os.path.relpath(file_path, temp_dir)
-                            yield {"type": "Tool: Read", "filepath": rel_path}
-                            
-                yield {"type": "AI Message", "message": f"Found {len(py_files)} Python files"}
-                                
                 # AI analysis and code modification workflow
                 yield {"type": "AI Message", "message": "Starting AI analysis with Claude 3.5 Sonnet..."}
                                 
                 try:
-                    # Simple, fast analysis with Claude 3.5 Sonnet
-                    yield {"type": "AI Message", "message": "Analyzing with Claude 3.5 Sonnet..."}
                     
                     # Get file structure
                     file_list = self._get_repo_structure(temp_dir)
-                    yield {"type": "AI Message", "message": f"Found files: {', '.join(file_list)}"}
+                    yield {"type": "AI Message", "message": f"Found {len(file_list)} files in repository"}
                     
-                    # Read all files and emit Tool: Read events
+                    # Ask Claude which files are relevant
+                    relevant_files = await self._select_relevant_files(file_list, prompt)
+                    if not relevant_files:
+                        yield {"type": "AI Message", "message": "No existing files relevant, will create new file"}
+                        relevant_files = []
+                    else:
+                        # Limit to 20 files AFTER selection to avoid memory issues
+                        if len(relevant_files) > 20:
+                            logger.warning(f"Claude selected {len(relevant_files)} files, limiting to 20 for memory efficiency")
+                            relevant_files = relevant_files[:20]
+                        yield {"type": "AI Message", "message": f"Selected {len(relevant_files)} relevant files: {', '.join(relevant_files)}"}
+                    
+                    # Read only relevant files and emit Tool: Read events
                     files_content = {}
-                    for filename in file_list:
+                    for filename in relevant_files:
                         yield {"type": "Tool: Read", "filepath": filename}
                         files_content[filename] = self._read_file(temp_dir, filename)
                     
@@ -307,13 +299,77 @@ class CodingAgent:
             # Raise exception for proper error handling
             raise Exception(f"Failed to create pull request: {str(e)}")
     
+    async def _select_relevant_files(self, file_list: list, prompt: str) -> list:
+        """Ask Claude which files are relevant for the task"""
+        
+        selection_prompt = f"""Task: {prompt}
+
+Available files:
+{chr(10).join(file_list)}
+
+Which files should I read to complete this task? Return JSON:
+{{"relevant_files": ["file1", "file2", ...]}}
+
+If creating a new file, return empty list: {{"relevant_files": []}}"""
+
+        try:
+            response = self.anthropic_client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=1000,
+                messages=[{"role": "user", "content": selection_prompt}]
+            )
+            
+            response_text = response.content[0].text
+            logger.info(f"File selection response: {response_text[:200]}...")
+            
+            # Parse JSON response - use the same robust parsing as _simple_claude_analysis
+            import re
+            json_text = None
+            
+            # Try to extract from markdown code blocks
+            code_block_pattern = r'```(?:json)?\s*(\{[^`]*\})\s*```'
+            code_match = re.search(code_block_pattern, response_text, re.DOTALL)
+            
+            if code_match:
+                json_text = code_match.group(1)
+            else:
+                # Try to find valid JSON object anywhere in text
+                json_pattern = r'(\{(?:[^{}]|(?:\{[^{}]*\}))*\})'
+                json_matches = re.findall(json_pattern, response_text, re.DOTALL)
+                
+                for match in json_matches:
+                    try:
+                        test_parse = json.loads(match)
+                        if 'relevant_files' in test_parse:
+                            json_text = match
+                            break
+                    except json.JSONDecodeError:
+                        continue
+            
+            if json_text:
+                result = json.loads(json_text)
+                relevant = result.get('relevant_files', [])
+                # Filter to only files that actually exist in our list
+                return [f for f in relevant if f in file_list]
+            
+            return []
+            
+        except Exception as e:
+            logger.error(f"File selection failed: {str(e)}")
+            # Fallback: return all files if selection fails
+            return file_list[:10]  # Limit to 10 files as fallback
+
     async def _simple_claude_analysis(self, files_content: dict, prompt: str, langsmith_run=None) -> dict:
         """Simple, fast Claude analysis with 3.5 Sonnet"""
         
         # Build a simple prompt
-        files_text = ""
-        for filename, content in files_content.items():
-            files_text += f"\n=== {filename} ===\n{content}\n"
+        # Handle case where no files are selected (need to create new file)
+        if not files_content:
+            files_text = "No existing files were selected as relevant."
+        else:
+            files_text = ""
+            for filename, content in files_content.items():
+                files_text += f"\n=== {filename} ===\n{content}\n"
         
         simple_prompt = f"""You are a coding assistant that MUST implement the requested changes.
 
@@ -327,8 +383,10 @@ SIMPLE RULES:
 2. To append to a file: use old_str = "" (empty string)
 3. To replace: use the exact text from the file
 4. If unsure, just append to the end of the file
+5. If no files provided, create a new file
 
-RESPONSE FORMAT (JSON only):
+IMPORTANT: Return ONLY the JSON below, nothing else. No explanations, no other JSON objects.
+
 {{
     "edits": [
         {{
@@ -404,7 +462,7 @@ Examples:
                             json_text = match
                             logger.info("Found valid JSON with 'edits' key")
                             break
-                    except:
+                    except json.JSONDecodeError:
                         continue
                 
                 # Method 3: Last resort - try the entire response
@@ -414,12 +472,16 @@ Examples:
                         if isinstance(test_parse, dict) and 'edits' in test_parse:
                             json_text = response_text
                             logger.info("Entire response is valid JSON")
-                    except:
+                    except json.JSONDecodeError:
                         logger.warning("Could not find valid JSON in response")
             
-            logger.info(f"Extracted JSON: {json_text[:200]}...")
-            result = json.loads(json_text)
-            logger.info(f"Parsed result: edits count = {len(result.get('edits', []))}")
+            if json_text:
+                logger.info(f"Extracted JSON: {json_text[:200]}...")
+                result = json.loads(json_text)
+                logger.info(f"Parsed result: edits count = {len(result.get('edits', []))}")
+            else:
+                logger.error("No valid JSON found in Claude response")
+                result = {"edits": []}
             
             # Update LangSmith run with success
             if claude_run:
@@ -456,7 +518,7 @@ Examples:
             return {"edits": []}
 
     def _get_repo_structure(self, repo_path: str) -> list:
-        """Get list of Python files in the repo, prioritizing based on README analysis"""
+        """Get list of all files in the repo, prioritizing based on README analysis"""
         # First, look for README files to understand project structure
         readme_content = None
         readme_files = ['README.md', 'README.rst', 'README.txt', 'readme.md', 'Readme.md']
@@ -472,44 +534,44 @@ Examples:
                 except Exception as e:
                     logger.warning(f"Could not read {readme}: {e}")
         
-        # Get all Python files
-        all_py_files = []
+        # Get all files (not just Python)
+        all_files = []
+        # Common binary/non-text extensions to skip
+        binary_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.pdf', 
+                           '.zip', '.tar', '.gz', '.rar', '.7z', '.exe', '.dll', 
+                           '.so', '.dylib', '.bin', '.dat', '.db', '.sqlite'}
+        
         for root, dirs, files in os.walk(repo_path):
             if '.git' in root:
                 continue
             for file in files:
-                if file.endswith('.py'):
-                    rel_path = os.path.relpath(os.path.join(root, file), repo_path)
-                    all_py_files.append(rel_path)
+                # Skip binary files
+                ext = os.path.splitext(file)[1].lower()
+                if ext in binary_extensions:
+                    continue
+                rel_path = os.path.relpath(os.path.join(root, file), repo_path)
+                all_files.append(rel_path)
         
         # If README exists, try to identify main files mentioned
         if readme_content:
-            # Look for Python files mentioned in README
+            # Look for files mentioned in README
             important_files = []
-            for py_file in all_py_files:
-                # Check if file is mentioned in README (without .py extension too)
-                file_base = os.path.basename(py_file).replace('.py', '')
-                if py_file in readme_content or file_base in readme_content:
-                    important_files.append(py_file)
-                    logger.info(f"File {py_file} found in README - marking as important")
+            for file in all_files:
+                # Check if file is mentioned in README (with or without extension)
+                file_base = os.path.splitext(os.path.basename(file))[0]
+                if file in readme_content or file_base in readme_content:
+                    important_files.append(file)
+                    logger.info(f"File {file} found in README - marking as important")
             
             # Prioritize: important files first, then others
             # Also limit to reasonable number of files to avoid memory issues
-            prioritized = important_files + [f for f in all_py_files if f not in important_files]
+            prioritized = important_files + [f for f in all_files if f not in important_files]
             
-            # Return top 20 files to avoid memory issues
-            if len(prioritized) > 20:
-                logger.warning(f"Found {len(prioritized)} Python files, limiting to 20 for memory efficiency")
-                return prioritized[:20]
-            
+            # Return all files - we'll limit AFTER Claude selects relevant ones
             return prioritized
         
-        # No README found, return all files (limited)
-        if len(all_py_files) > 20:
-            logger.warning(f"Found {len(all_py_files)} Python files, limiting to 20 for memory efficiency")
-            return all_py_files[:20]
-        
-        return all_py_files
+        # No README found, return all files
+        return all_files
 
     def _read_file(self, repo_path: str, filename: str) -> str:
         """Read a single file's content with size limits"""
@@ -532,15 +594,22 @@ Examples:
             return f"Error reading file: {str(e)}"
 
     def _apply_single_edit(self, repo_path: str, edit_info: dict):
-        """Apply a single edit to a file - handles both replace and append"""
+        """Apply a single edit to a file - handles create, append, and replace"""
         file_path = os.path.join(repo_path, edit_info["file"])
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            # Check if file exists
+            if os.path.exists(file_path):
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            else:
+                # File doesn't exist - will be created
+                content = ""
+                logger.info(f"Creating new file: {edit_info['file']}")
             
-            # If old_str is empty, append to file
+            # If old_str is empty, append to file (or create new file)
             if not edit_info["old_str"]:
-                logger.info(f"Appending to {edit_info['file']}")
+                if content:
+                    logger.info(f"Appending to {edit_info['file']}")
                 new_content = content + edit_info["new_str"]
             else:
                 # Check if the old_str exists in the file
@@ -551,6 +620,11 @@ Examples:
                 else:
                     # Pattern not found - raise error
                     raise ValueError(f"Pattern not found in {edit_info['file']}: {edit_info['old_str'][:100]}")
+            
+            # Create directory if it doesn't exist
+            dir_path = os.path.dirname(file_path)
+            if dir_path:  # Only create if there's a directory component
+                os.makedirs(dir_path, exist_ok=True)
             
             # Write the modified content
             with open(file_path, 'w', encoding='utf-8') as f:

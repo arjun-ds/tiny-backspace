@@ -45,6 +45,8 @@ python test_endpoint.py https://arjun-ds--backspace-agent-modal-asgi.modal.run \
 The API returns a Server-Sent Events (SSE) stream showing:
 
 - Repository cloning progress
+- File discovery (`Found X files in repository`)
+- Intelligent file selection (`Selected Y relevant files`)
 - File analysis (`Tool: Read` events)
 - AI planning messages (`AI Message` events)
 - Code changes being made (`Tool: Edit` events)
@@ -111,24 +113,28 @@ python test_endpoint.py https://your-username--backspace-agent-modal-asgi.modal.
 
 ### 3. Which Coding Agent Approach I Chose and Why
 
-The agent follows this workflow:
+The agent uses a **two-stage intelligent file selection** approach:
 
-1. **Intelligent File Selection**:
+1. **Language-Agnostic File Discovery**:
+   - Supports ALL file types (Python, JavaScript, TypeScript, Go, etc.)
+   - No hardcoded language restrictions
+   - Skips binary files (images, PDFs, etc.) automatically
 
-   - Reads README files first to understand project structure
-   - Prioritizes files mentioned in documentation
-   - Limits to 20 files (1MB each) for memory efficiency
+2. **Claude-Driven File Selection**:
+   - First, sends ALL file names to Claude to decide which are relevant
+   - Claude can select existing files OR determine no files are needed (for new file creation)
+   - Only reads the files Claude selects, avoiding memory issues
+   - Limits to 20 files after selection for safety
 
-2. **Robust JSON Parsing**:
+3. **Context-Aware Code Generation**:
+   - Claude writes code in the appropriate language for each file
+   - Handles creating new files in any language based on the task
+   - Uses exact text matching for reliable edits
 
-   - Uses regex-based extraction to handle various response formats
-   - Validates JSON structure before processing
-   - No fallback mechanisms - fails cleanly on errors
-
-3. **Streaming Architecture**:
-   - Real-time SSE updates for transparency
-   - Event-driven design matching the spec format
-   - Comprehensive logging with optional LangSmith observability
+4. **Robust Implementation**:
+   - Graceful JSON parsing with multiple fallback strategies
+   - Proper error handling with specific exceptions
+   - Clean failure modes with helpful error messages
 
 ## 🏗️ Architecture
 
@@ -211,14 +217,21 @@ Once enabled, you can view traces at https://smith.langchain.com for real-time t
 
 5. **Agent timeout**
    - Large repositories may take longer to process
-   - The agent limits to 20 files for efficiency
+   - The agent intelligently selects relevant files before reading
+   - Reads maximum 20 files after selection to prevent memory issues
+
+6. **"AI analysis completed but no changes were identified"**
+   - Ensure your prompt is specific and actionable
+   - Claude needs clear instructions on what to modify or create
 
 ## 📝 Notes
 
 - Only public GitHub repositories are supported
 - The agent creates PRs under your GitHub account
 - Each request runs in an isolated Modal container
-- File size limit: 1MB per file, max 20 files per repository
+- Supports all programming languages (Python, JavaScript, TypeScript, Go, etc.)
+- File size limit: 1MB per file
+- Intelligently selects relevant files, reads maximum 20 after selection
 
 ## 🎥 Demo Video
 
