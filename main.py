@@ -1,3 +1,4 @@
+# This is the main entry point
 import modal
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
