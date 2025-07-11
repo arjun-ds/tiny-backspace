@@ -688,3 +688,14 @@ async def run_agent(repo_url: str, prompt: str) -> AsyncGenerator[str, None]:
         logger.error(f"Error in run_agent: {str(e)}", exc_info=True)
         error_event = {"type": "error", "message": f"Agent failed: {str(e)}"}
         yield f"data: {json.dumps(error_event)}\n\n"
+def calculate(x, y):
+    """Calculate the sum of two numbers.
+
+    Args:
+        x (float): First number to add
+        y (float): Second number to add
+
+    Returns:
+        float: Sum of x and y
+    """
+    return x + y
