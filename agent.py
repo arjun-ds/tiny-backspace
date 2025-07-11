@@ -1,3 +1,4 @@
+# Simple comment: This module provides the core agent functionality for Backspace
 """
 Coding agent implementation for Backspace
 """
