@@ -1,5 +1,16 @@
 """
-Coding agent implementation for Backspace
+Coding agent implementation for Backspace.
+
+This module implements the core functionality for analyzing and modifying code repositories.
+It uses Claude AI to understand code structure, suggest improvements, and generate changes.
+Supports cloning GitHub repositories, making targeted code modifications, and creating pull requests.
+
+Key components:
+- CodingAgent class for orchestrating the workflow
+- Integration with GitHub API for repo operations
+- Claude AI integration for code analysis
+- Validation and error handling systems
+- Event streaming for progress updates
 """
 
 import os

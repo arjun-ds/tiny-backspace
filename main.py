@@ -9,8 +9,8 @@ import json
 from typing import AsyncGenerator
 import os
 
-# Define the Modal app
-app = modal.App("backspace-agent")
+# Define the Modal app - main entrypoint for the Backspace agent service
+app = modal.App("backspace-agent")  # Creates Modal application container
 
 # Create FastAPI instance
 web_app = FastAPI(title="Backspace Coding Agent")

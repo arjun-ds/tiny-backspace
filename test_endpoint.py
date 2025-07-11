@@ -1,6 +1,19 @@
 #!/usr/bin/env python3
 """
-Test script for the Modal Coding Agent endpoint
+Test script for the Modal Coding Agent endpoint.
+
+This script provides functionality to test the code modification endpoint
+of a deployed Modal Coding Agent service. It supports automated testing
+of the full workflow including repository cloning, code analysis,
+modification and pull request creation.
+
+Key features:
+- Health check validation
+- SSE stream testing 
+- PR URL validation
+- Configurable timeout and verbosity
+- Optional results saving
+- Authentication testing mode
 """
 
 import json
