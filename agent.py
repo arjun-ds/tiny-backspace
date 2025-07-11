@@ -1,3 +1,19 @@
+def check_environment_variables():
+    """Check if required environment variables are set and valid
+    
+    Returns:
+        tuple: (bool, str) - (success, error_message)
+    """
+    github_token = os.getenv("GITHUB_TOKEN", "")
+    anthropic_key = os.getenv("ANTHROPIC_API_KEY", "")
+    
+    if not github_token:
+        return False, "GitHub token not configured"
+    if not anthropic_key:
+        return False, "Anthropic API key not configured"
+    
+    return True, ""
+
 """
 Coding agent implementation for Backspace
 """
@@ -538,3 +554,20 @@ async def run_agent(repo_url: str, prompt: str) -> AsyncGenerator[str, None]:
         logger.error(f"Error in run_agent: {str(e)}", exc_info=True)
         error_event = {"type": "error", "message": f"Agent failed: {str(e)}"}
         yield f"data: {json.dumps(error_event)}\n\n"
+def validate_repository_url(repo_url: str) -> tuple[bool, str]:
+    """Validate if a given URL is a valid GitHub repository URL
+    
+    Args:
+        repo_url: The GitHub repository URL to validate
+        
+    Returns:
+        tuple: (bool, str) - (is_valid, error_message)
+    """
+    if not repo_url.startswith("https://github.com/"):
+        return False, "URL must start with https://github.com/"
+        
+    parts = repo_url.replace("https://github.com/", "").split("/")
+    if len(parts) < 2:
+        return False, "URL must contain owner and repository name"
+        
+    return True, ""
