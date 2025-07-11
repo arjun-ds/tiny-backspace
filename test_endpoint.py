@@ -190,6 +190,30 @@ def _save_results(results: dict, filename: str = "test_results.json"):
         print(f"Could not save results: {e}")
 
 def main():
+    """Command-line interface for testing the coding agent endpoint.
+    
+    Usage:
+        python test_endpoint.py <base_url> [options]
+    
+    Arguments:
+        base_url: Base URL of the deployed Modal app
+    
+    Options:
+        --repo <url>      Custom repository URL
+        --prompt <text>   Custom prompt
+        --timeout <sec>   Timeout in seconds (default: 300)
+        --quiet          Minimal output
+        --debug          Maximum verbosity
+        --save-results   Save results to JSON file
+        --auth-test      Test auth without changes
+    
+    The script tests the /code endpoint by:
+    1. Checking endpoint health
+    2. Sending a test request
+    3. Processing the SSE response stream
+    4. Validating results and PR creation
+    5. Outputting test results
+    """
     if len(sys.argv) < 2:
         print("Usage: python test_endpoint.py <base_url> [options]")
         print("Options:")

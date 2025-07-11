@@ -36,7 +36,25 @@ class CodeRequest(BaseModel):
 
 @web_app.post("/code")
 async def create_code_changes(request: CodeRequest):
-    """Run the agent and format output like test_endpoint.py does"""
+    """Run the coding agent to process repository changes.
+    
+    This endpoint:
+    1. Takes a GitHub repo URL and change prompt
+    2. Runs the coding agent to analyze and modify code
+    3. Streams status events back to the client
+    4. Returns a streaming response with server-sent events
+
+    Args:
+        request (CodeRequest): Request body containing:
+            - repoUrl: GitHub repository URL
+            - prompt: Natural language description of changes
+
+    Returns:
+        StreamingResponse: Server-sent events stream with status updates
+
+    Events format:
+        data: {"type": "event_type", "message": "status message", ...}
+    """
     from agent import run_agent
     
     # Hardcode the repo URL as requested
