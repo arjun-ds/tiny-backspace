@@ -25,7 +25,7 @@ web_app.add_middleware(
 )
 
 @web_app.get("/healthz")
-async def healthz():
+async def healthz(): # 5
     """Health check endpoint"""
     return {"status": "ok", "service": "Backspace Coding Agent"}
 
@@ -35,7 +35,7 @@ class CodeRequest(BaseModel):
     prompt: str
 
 @web_app.post("/code")
-async def create_code_changes(request: CodeRequest):
+async def create_code_changes(request: CodeRequest): # 5
     """Run the agent and format output like test_endpoint.py does"""
     from agent import run_agent
     
@@ -74,7 +74,7 @@ async def create_code_changes_api(request: CodeRequest):
 
 # Add a debug endpoint that shows what's happening
 @web_app.post("/api/code-debug")
-async def create_code_changes_debug(request: CodeRequest):
+async def create_code_changes_debug(request: CodeRequest): # 5
     """Debug endpoint that shows step-by-step what's happening"""
     # Hardcode the repo URL as requested
     repo_url = "https://github.com/arjun-ds/tiny-backspace"
