@@ -30,12 +30,30 @@ class CodeRequest(BaseModel):
 
 @web_app.get("/")
 async def root():
-    """Health check endpoint"""
+    """Health check endpoint that confirms the service is running.
+    
+    Returns:
+        dict: A simple status response indicating the service is operational
+    """
     return {"status": "ok", "service": "Backspace Coding Agent"}
 
 @web_app.post("/code")
 async def create_code_changes(request: CodeRequest):
-    """Main endpoint that streams the coding process"""
+    """Main endpoint that streams the coding process.
+    
+    This endpoint accepts a repository URL and prompt, then streams the progress
+    of the coding agent as it analyzes and modifies the codebase. The response
+    is sent as Server-Sent Events (SSE) to allow real-time progress updates.
+    
+    Args:
+        request (CodeRequest): Contains the repository URL and coding prompt
+    
+    Returns:
+        StreamingResponse: SSE stream of the coding process progress
+        
+    Raises:
+        HTTPException: If the repository URL is not a GitHub repository
+    """
     
     # Import agent inside the function to avoid issues during deployment
     from agent import run_agent
