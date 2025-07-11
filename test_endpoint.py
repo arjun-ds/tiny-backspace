@@ -1,3 +1,4 @@
+# Test endpoint script for interacting with the Modal Coding Agent
 #!/usr/bin/env python3
 """
 Test script for the Modal Coding Agent endpoint
