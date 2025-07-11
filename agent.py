@@ -12,6 +12,7 @@ import json
 import anthropic
 import logging
 import time
+import re
 
 # Configure logging
 logging.basicConfig(
@@ -147,35 +148,11 @@ class CodingAgent:
                     # Simple Claude request with LangSmith tracking
                     changes = await self._simple_claude_analysis(files_content, prompt, langsmith_run)
                     
-                    # If Claude doesn't provide edits, create simple fallback
+                    # If Claude doesn't provide edits, return error
                     if not changes.get('edits'):
-                        logger.warning("Claude provided no edits, creating fallback")
-                        yield {"type": "AI Message", "message": "Creating fallback implementation to fulfill request..."}
-                        
-                        # Simple fallback: add to the first Python file
-                        if file_list:
-                            target_file = file_list[0]
-                            content = files_content[target_file]
-                            
-                            # Create a simple addition based on the prompt
-                            prompt_lower = prompt.lower()
-                            if "comment" in prompt_lower:
-                                addition = f"\n# {prompt}\n# This comment was added by the Backspace Coding Agent\n# to fulfill the user's request\n"
-                            elif "function" in prompt_lower:
-                                addition = f"\ndef auto_generated_function():\n    \"\"\"Function added to fulfill: {prompt}\"\"\"\n    return True\n"
-                            else:
-                                addition = f"\n# Automated addition for: {prompt}\n"
-                            
-                            changes = {
-                                "edits": [{
-                                    "file": target_file,
-                                    "old_str": "",  # Empty means append
-                                    "new_str": addition
-                                }]
-                            }
-                        else:
-                            yield {"type": "error", "message": "No Python files found to modify"}
-                            return
+                        logger.error("Claude provided no edits for the request")
+                        yield {"type": "error", "message": "AI analysis completed but no changes were identified"}
+                        return
                     
                     # Apply changes
                     yield {"type": "AI Message", "message": f"Applying {len(changes['edits'])} changes..."}
@@ -366,35 +343,44 @@ Examples:
             response_text = response.content[0].text
             logger.info(f"Raw Claude response: {response_text[:500]}...")
             
-            # Parse JSON response - handle various formats
-            json_text = response_text
+            # Parse JSON response - handle various formats robustly
             
-            # Try to extract JSON from markdown code blocks
-            if "```json" in response_text:
-                json_start = response_text.find("```json") + 7
-                json_end = response_text.find("```", json_start)
-                json_text = response_text[json_start:json_end]
-            elif "```" in response_text:
-                # Handle plain code blocks
-                json_start = response_text.find("```") + 3
-                json_end = response_text.find("```", json_start)
-                json_text = response_text[json_start:json_end].strip()
+            json_text = None
+            
+            # Method 1: Try to extract from markdown code blocks
+            code_block_pattern = r'```(?:json)?\s*(\{[^`]*\})\s*```'
+            code_match = re.search(code_block_pattern, response_text, re.DOTALL)
+            
+            if code_match:
+                json_text = code_match.group(1)
+                logger.info("Extracted JSON from code block")
             else:
-                # Try to find raw JSON by looking for the first { and last }
-                start_idx = response_text.find('{')
-                if start_idx != -1:
-                    # Find the matching closing brace
-                    brace_count = 0
-                    end_idx = start_idx
-                    for i in range(start_idx, len(response_text)):
-                        if response_text[i] == '{':
-                            brace_count += 1
-                        elif response_text[i] == '}':
-                            brace_count -= 1
-                            if brace_count == 0:
-                                end_idx = i + 1
-                                break
-                    json_text = response_text[start_idx:end_idx]
+                # Method 2: Try to find valid JSON object anywhere in text
+                # This regex looks for balanced braces
+                json_pattern = r'(\{(?:[^{}]|(?:\{[^{}]*\}))*\})'
+                json_matches = re.findall(json_pattern, response_text, re.DOTALL)
+                
+                # Try each match to find valid JSON
+                for match in json_matches:
+                    try:
+                        # Quick validation
+                        test_parse = json.loads(match)
+                        if 'edits' in test_parse:  # We expect 'edits' key
+                            json_text = match
+                            logger.info("Found valid JSON with 'edits' key")
+                            break
+                    except:
+                        continue
+                
+                # Method 3: Last resort - try the entire response
+                if not json_text:
+                    try:
+                        test_parse = json.loads(response_text)
+                        if isinstance(test_parse, dict) and 'edits' in test_parse:
+                            json_text = response_text
+                            logger.info("Entire response is valid JSON")
+                    except:
+                        logger.warning("Could not find valid JSON in response")
             
             logger.info(f"Extracted JSON: {json_text[:200]}...")
             result = json.loads(json_text)
@@ -435,21 +421,77 @@ Examples:
             return {"edits": []}
 
     def _get_repo_structure(self, repo_path: str) -> list:
-        """Get list of Python files in the repo"""
-        py_files = []
+        """Get list of Python files in the repo, prioritizing based on README analysis"""
+        # First, look for README files to understand project structure
+        readme_content = None
+        readme_files = ['README.md', 'README.rst', 'README.txt', 'readme.md', 'Readme.md']
+        
+        for readme in readme_files:
+            readme_path = os.path.join(repo_path, readme)
+            if os.path.exists(readme_path):
+                try:
+                    with open(readme_path, 'r', encoding='utf-8') as f:
+                        readme_content = f.read()
+                        logger.info(f"Found README file: {readme}")
+                        break
+                except Exception as e:
+                    logger.warning(f"Could not read {readme}: {e}")
+        
+        # Get all Python files
+        all_py_files = []
         for root, dirs, files in os.walk(repo_path):
             if '.git' in root:
                 continue
             for file in files:
                 if file.endswith('.py'):
                     rel_path = os.path.relpath(os.path.join(root, file), repo_path)
-                    py_files.append(rel_path)
-        return py_files
+                    all_py_files.append(rel_path)
+        
+        # If README exists, try to identify main files mentioned
+        if readme_content:
+            # Look for Python files mentioned in README
+            important_files = []
+            for py_file in all_py_files:
+                # Check if file is mentioned in README (without .py extension too)
+                file_base = os.path.basename(py_file).replace('.py', '')
+                if py_file in readme_content or file_base in readme_content:
+                    important_files.append(py_file)
+                    logger.info(f"File {py_file} found in README - marking as important")
+            
+            # Prioritize: important files first, then others
+            # Also limit to reasonable number of files to avoid memory issues
+            prioritized = important_files + [f for f in all_py_files if f not in important_files]
+            
+            # Return top 20 files to avoid memory issues
+            if len(prioritized) > 20:
+                logger.warning(f"Found {len(prioritized)} Python files, limiting to 20 for memory efficiency")
+                return prioritized[:20]
+            
+            return prioritized
+        
+        # No README found, return all files (limited)
+        if len(all_py_files) > 20:
+            logger.warning(f"Found {len(all_py_files)} Python files, limiting to 20 for memory efficiency")
+            return all_py_files[:20]
+        
+        return all_py_files
 
     def _read_file(self, repo_path: str, filename: str) -> str:
-        """Read a single file's content"""
+        """Read a single file's content with size limits"""
         try:
-            with open(os.path.join(repo_path, filename), 'r', encoding='utf-8') as f:
+            file_path = os.path.join(repo_path, filename)
+            
+            # Check file size first to avoid memory issues
+            file_size = os.path.getsize(file_path)
+            max_size = 1024 * 1024  # 1MB limit per file
+            
+            if file_size > max_size:
+                logger.warning(f"File {filename} is too large ({file_size} bytes), truncating to {max_size} bytes")
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read(max_size)
+                    return content + f"\n\n[FILE TRUNCATED - Original size: {file_size} bytes]"
+            
+            with open(file_path, 'r', encoding='utf-8') as f:
                 return f.read()
         except Exception as e:
             return f"Error reading file: {str(e)}"
@@ -472,9 +514,8 @@ Examples:
                     new_content = content.replace(edit_info["old_str"], edit_info["new_str"], 1)
                     logger.info(f"Replaced content in {edit_info['file']}")
                 else:
-                    # If not found, append instead
-                    logger.warning(f"Pattern not found in {edit_info['file']}, appending instead")
-                    new_content = content + "\n" + edit_info["new_str"]
+                    # Pattern not found - raise error
+                    raise ValueError(f"Pattern not found in {edit_info['file']}: {edit_info['old_str'][:100]}")
             
             # Write the modified content
             with open(file_path, 'w', encoding='utf-8') as f:
@@ -483,7 +524,7 @@ Examples:
             logger.info(f"Successfully modified {edit_info['file']}")
         except Exception as e:
             logger.error(f"Failed to apply edit to {edit_info['file']}: {str(e)}")
-            # Don't raise - try to continue with other edits
+            raise  # Re-raise to stop processing
 
 
     async def _create_git_branch_and_commit_and_collect_events(self, repo, branch_name: str, prompt: str) -> AsyncGenerator[Dict[str, Any], None]:
