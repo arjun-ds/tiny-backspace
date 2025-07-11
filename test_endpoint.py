@@ -267,3 +267,25 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def get_test_summary(results: dict) -> str:
+    """Generate a human-readable summary of test results
+    
+    Args:
+        results: Dictionary containing test results
+        
+    Returns:
+        str: Formatted summary string
+    """
+    summary = []
+    summary.append(f"Test completed in {results['duration']:.1f}s")
+    summary.append(f"Success: {results['success']}")
+    summary.append(f"Events received: {results['events_received']}")
+    
+    if results.get('pr_url'):
+        summary.append(f"PR created: {results['pr_url']}")
+    if results.get('error'):
+        summary.append(f"Error: {results['error']}")
+        
+    return '\n'.join(summary)
