@@ -179,3 +179,16 @@ def modal_asgi():
         print(f"Warning: Static directory {static_dir} not found")
     
     return web_app
+def calculate(a, b):
+    """Add two numbers together with error handling."""
+    try:
+        return float(a) + float(b)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"Invalid input: both arguments must be numbers. Error: {str(e)}")
+
+def subtract(a, b):
+    """Subtract b from a and return the difference."""
+    try:
+        return float(a) - float(b)
+    except (TypeError, ValueError) as e:
+        raise ValueError(f"Invalid input: both arguments must be numbers. Error: {str(e)}")
