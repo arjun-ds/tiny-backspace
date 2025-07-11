@@ -1,12 +1,11 @@
 import modal
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse, FileResponse
+from fastapi import FastAPI
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, HttpUrl
 import asyncio
 import json
-from typing import AsyncGenerator
 import os
 
 # Define the Modal app

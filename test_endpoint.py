@@ -196,7 +196,6 @@ def main():
         print("  --repo <url>      Custom repository URL")
         print("  --prompt <text>   Custom prompt")
         print("  --timeout <sec>   Timeout in seconds (default: 300)")
-        print("  --quiet           Minimal output")
         print("  --debug           Maximum verbosity with all event details")
         print("  --save-results    Save results to JSON file")
         print("  --auth-test       Test authentication without making changes")
@@ -205,7 +204,7 @@ def main():
         print("  python test_endpoint.py https://your-app.modal.run")
         print("  python test_endpoint.py https://your-app.modal.run --debug")
         print("  python test_endpoint.py https://your-app.modal.run --repo https://github.com/owner/repo")
-        print("  python test_endpoint.py https://your-app.modal.run --quiet --save-results")
+        print("  python test_endpoint.py https://your-app.modal.run --save-results")
         sys.exit(1)
     
     base_url = sys.argv[1].rstrip('/')
@@ -230,9 +229,6 @@ def main():
         elif arg == "--timeout" and i + 1 < len(sys.argv):
             timeout = int(sys.argv[i + 1])
             i += 2
-        elif arg == "--quiet":
-            verbose = False
-            i += 1
         elif arg == "--debug":
             verbose = True
             debug = True
