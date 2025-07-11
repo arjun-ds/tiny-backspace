@@ -169,7 +169,11 @@ async def create_code_changes_debug(request: CodeRequest):
 )
 @modal.asgi_app()
 def modal_asgi():
-    """Deploy FastAPI app on Modal"""
+    """A simple hello world program that deploys a FastAPI app on Modal.
+    
+    This function serves as the main entry point for the Modal ASGI application.
+    It mounts static files and returns the configured FastAPI web application.
+    """
     # Mount static files LAST so API routes take precedence
     static_dir = "/root/web/out"
     if os.path.exists(static_dir):
