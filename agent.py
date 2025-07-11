@@ -867,3 +867,36 @@ async def run_agent(repo_url: str, prompt: str) -> AsyncGenerator[str, None]:
         logger.error(f"Error in run_agent: {str(e)}", exc_info=True)
         error_event = {"type": "error", "message": f"Agent failed: {str(e)}"}
         yield f"data: {json.dumps(error_event)}\n\n"
+
+def enhanced_function_1(data):
+    """
+    A non-trivial function that processes data and returns enhanced results.
+    
+    Args:
+        data: Input data to process
+        
+    Returns:
+        dict: Enhanced data with additional metadata
+    """
+    if not data:
+        return {"status": "empty", "processed": False}
+    
+    # Process the data with some logic
+    result = {
+        "original": data,
+        "processed": True,
+        "timestamp": str(time.time()) if 'time' in globals() else "unknown",
+        "enhanced": True,
+        "metadata": {
+            "function": "enhanced_function_1",
+            "file": "agent.py",
+            "version": "1.0"
+        }
+    }
+    
+    # Add some processing logic
+    if isinstance(data, (dict, list)):
+        result["size"] = len(data)
+        result["type"] = type(data).__name__
+    
+    return result
