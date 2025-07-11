@@ -179,3 +179,4 @@ def modal_asgi():
         print(f"Warning: Static directory {static_dir} not found")
     
     return web_app
+# This is the main FastAPI application that handles routing and agent execution
