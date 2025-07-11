@@ -26,11 +26,23 @@ web_app.add_middleware(
 
 @web_app.get("/healthz")
 async def healthz():
-    """Health check endpoint"""
+    """Health check endpoint that returns service status.
+    
+    Returns:
+        dict: Service status information with keys:
+            - status: Current service status ('ok')
+            - service: Name of the service
+    """
     return {"status": "ok", "service": "Backspace Coding Agent"}
 
 # Request model
 class CodeRequest(BaseModel):
+    """Request model for code modification endpoints.
+    
+    Attributes:
+        repoUrl (HttpUrl): URL of the GitHub repository to modify
+        prompt (str): Natural language description of requested changes
+    """
     repoUrl: HttpUrl
     prompt: str
 

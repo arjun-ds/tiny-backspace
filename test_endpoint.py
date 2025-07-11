@@ -1,5 +1,17 @@
 #!/usr/bin/env python3
 """
+Test script for the Modal Coding Agent endpoint.
+
+This script provides functionality to test the code modification API endpoints
+by sending requests and validating responses. It supports:
+- Testing health check endpoint
+- Sending code modification requests
+- Validating Server-Sent Events (SSE) responses
+- Checking pull request creation
+- Saving test results
+
+The script can be run from command line with various options for customization.
+
 Test script for the Modal Coding Agent endpoint
 """
 
@@ -158,7 +170,15 @@ def test_endpoint(
         results["duration"] = time.time() - start_time
 
 def _validate_pr_url(pr_url: str, verbose: bool = True) -> bool:
-    """Validate that PR URL is accessible"""
+    """Validate that a GitHub pull request URL is accessible.
+    
+    Args:
+        pr_url (str): Pull request URL to validate
+        verbose (bool, optional): Print validation details. Defaults to True.
+        
+    Returns:
+        bool: True if PR URL is valid and accessible, False otherwise
+    """
     try:
         if not pr_url.startswith("https://github.com/"):
             return False
@@ -181,7 +201,12 @@ def _validate_pr_url(pr_url: str, verbose: bool = True) -> bool:
         return False
 
 def _save_results(results: dict, filename: str = "test_results.json"):
-    """Save test results to file"""
+    """Save test execution results to a JSON file.
+    
+    Args:
+        results (dict): Test results dictionary to save
+        filename (str, optional): Output JSON filename. Defaults to 'test_results.json'.
+    """
     try:
         with open(filename, 'w') as f:
             json.dump(results, f, indent=2)

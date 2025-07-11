@@ -37,7 +37,19 @@ else:
     tracer = None
 
 class CodingAgent:
-    """Handles code analysis and modification"""
+    """Handles code analysis and modification for GitHub repositories.
+
+    This class provides functionality to:
+    - Clone and analyze GitHub repositories
+    - Process code modification requests using Claude AI
+    - Apply changes and create pull requests
+    - Validate and fix code changes
+    
+    Attributes:
+        github_token (str): GitHub authentication token
+        github (Github): PyGithub client instance
+        anthropic_client (Anthropic): Anthropic API client for Claude
+    """
     
     def __init__(self, github_token: str):
         self.github_token = github_token
