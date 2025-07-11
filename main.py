@@ -171,7 +171,21 @@ async def create_code_changes_debug(request: CodeRequest):
 )
 @modal.asgi_app()
 def modal_asgi():
-    """Deploy FastAPI app on Modal"""
+    """Main function that deploys the FastAPI application on Modal.
+    
+    This function configures and returns the FastAPI web application instance
+    with all routes and middleware configured. It also mounts static files
+    from the web/out directory if available.
+    
+    The function is decorated with Modal settings including:
+    - Base Debian slim image with required packages
+    - Environment variables for logging and tracing
+    - Required secrets (GitHub token, Anthropic API key, LangSmith key)
+    - 300 second timeout
+    
+    Returns:
+        FastAPI: The configured FastAPI application instance ready for Modal deployment
+    """
     # Mount static files LAST so API routes take precedence
     static_dir = "/root/web/out"
     if os.path.exists(static_dir):
