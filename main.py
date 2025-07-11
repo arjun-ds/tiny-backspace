@@ -26,7 +26,11 @@ web_app.add_middleware(
 
 @web_app.get("/healthz")
 async def healthz():
-    """Health check endpoint"""
+    """Health check endpoint to verify service status.
+    
+    Returns:
+        dict: Status response with service name
+    """
     return {"status": "ok", "service": "Backspace Coding Agent"}
 
 # Request model
@@ -171,7 +175,18 @@ async def create_code_changes_debug(request: CodeRequest):
 )
 @modal.asgi_app()
 def modal_asgi():
-    """Deploy FastAPI app on Modal"""
+    """Deploy FastAPI app on Modal with configuration.
+    
+    This function configures the FastAPI app for Modal deployment with:
+    - Required Python packages and system dependencies
+    - Environment variables for logging and tracing
+    - Local files and directories mounted
+    - GitHub and Anthropic API secrets
+    - Static file serving
+    
+    Returns:
+        FastAPI: Configured FastAPI application
+    """
     # Mount static files LAST so API routes take precedence
     static_dir = "/root/web/out"
     if os.path.exists(static_dir):
