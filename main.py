@@ -181,3 +181,36 @@ def modal_asgi():
         print(f"Warning: Static directory {static_dir} not found")
     
     return web_app
+
+def enhanced_function_2(data):
+    """
+    A non-trivial function that processes data and returns enhanced results.
+    
+    Args:
+        data: Input data to process
+        
+    Returns:
+        dict: Enhanced data with additional metadata
+    """
+    if not data:
+        return {"status": "empty", "processed": False}
+    
+    # Process the data with some logic
+    result = {
+        "original": data,
+        "processed": True,
+        "timestamp": str(time.time()) if 'time' in globals() else "unknown",
+        "enhanced": True,
+        "metadata": {
+            "function": "enhanced_function_2",
+            "file": "main.py",
+            "version": "1.0"
+        }
+    }
+    
+    # Add some processing logic
+    if isinstance(data, (dict, list)):
+        result["size"] = len(data)
+        result["type"] = type(data).__name__
+    
+    return result
