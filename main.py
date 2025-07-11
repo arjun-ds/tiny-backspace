@@ -31,11 +31,33 @@ async def healthz():
 
 # Request model
 class CodeRequest(BaseModel):
+    """Request model for code modification API endpoints.
+    
+    Attributes:
+        repoUrl (HttpUrl): URL of the GitHub repository to process
+        prompt (str): Natural language description of desired code changes
+    """
     repoUrl: HttpUrl
     prompt: str
 
 @web_app.post("/code")
 async def create_code_changes(request: CodeRequest):
+    """Primary endpoint for running the coding agent on a repository.
+    
+    This endpoint:
+    1. Validates the request
+    2. Runs the coding agent to analyze and modify code
+    3. Streams status updates via Server-Sent Events (SSE)
+    
+    Args:
+        request (CodeRequest): Contains repository URL and change prompt
+        
+    Returns:
+        StreamingResponse: SSE stream of agent progress and results
+        
+    Note:
+        Repository URL is currently hardcoded to a test repository
+    """
     """Run the agent and format output like test_endpoint.py does"""
     from agent import run_agent
     

@@ -37,7 +37,17 @@ else:
     tracer = None
 
 class CodingAgent:
-    """Handles code analysis and modification"""
+    """Handles code analysis and modification through interaction with GitHub repositories.
+
+    This class provides functionality to:
+    - Clone and analyze GitHub repositories
+    - Generate code changes using Claude AI
+    - Apply changes and create pull requests
+    - Validate and test code modifications
+    
+    Args:
+        github_token (str): GitHub authentication token for repository access
+    """
     
     def __init__(self, github_token: str):
         self.github_token = github_token
@@ -50,6 +60,28 @@ class CodingAgent:
         self.anthropic_client = anthropic.Anthropic(api_key=anthropic_token)
     
     async def process_repository(
+        self, 
+        repo_url: str,
+        prompt: str
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Process a GitHub repository by analyzing and modifying code based on a prompt.
+        
+        Args:
+            repo_url (str): URL of the GitHub repository to process
+            prompt (str): Natural language prompt describing desired code changes
+            
+        Yields:
+            Dict[str, Any]: Status update events during processing including:
+                - AI messages and analysis
+                - File read/write operations 
+                - Git operations and PR creation
+                - Error events if issues occur
+                
+        Raises:
+            Exception: If repository processing fails
+        """
+        
+        async def process_repository(
         self, 
         repo_url: str, 
         prompt: str
@@ -218,6 +250,26 @@ class CodingAgent:
             raise Exception(f"Failed to create pull request: {str(e)}")
     
     async def _simple_claude_analysis(self, files_content: dict, prompt: str) -> dict:
+        """Perform a quick, focused code analysis using Claude 3.5 Sonnet.
+        
+        Args:
+            files_content (dict): Map of filenames to their content strings
+            prompt (str): The user's requested changes
+            
+        Returns:
+            dict: Analysis results containing planned edits in the format:
+                {
+                    "edits": [
+                        {
+                            "file": str,
+                            "old_str": str, 
+                            "new_str": str
+                        }
+                    ]
+                }
+        """
+        
+        async def _simple_claude_analysis(self, files_content: dict, prompt: str) -> dict:
         """Simple, fast Claude analysis with 3.5 Sonnet"""
         
         # Build a simple prompt
