@@ -190,6 +190,22 @@ def _save_results(results: dict, filename: str = "test_results.json"):
         print(f"Could not save results: {e}")
 
 def main():
+    """Main entry point for the test script.
+    
+    Parses command line arguments and runs tests against the coding agent endpoint.
+    Valid arguments include:
+    - Base URL (required)
+    - --repo: Custom repository URL
+    - --prompt: Custom coding prompt
+    - --timeout: Request timeout in seconds
+    - --quiet: Minimal output mode
+    - --debug: Verbose debug output
+    - --save-results: Save test results to file
+    - --auth-test: Test authentication only
+    
+    Returns:
+        None. Exits with code 0 on success, 1 on failure.
+    """
     if len(sys.argv) < 2:
         print("Usage: python test_endpoint.py <base_url> [options]")
         print("Options:")

@@ -37,9 +37,27 @@ else:
     tracer = None
 
 class CodingAgent:
-    """Handles code analysis and modification"""
+    """Handles code analysis and modification using AI assistance.
+
+    This class provides functionality to clone GitHub repositories, analyze code,
+    make AI-assisted modifications using Claude, and create pull requests with changes.
+    It uses the GitHub API for repository operations and Claude API for code analysis.
+
+    Attributes:
+        github_token (str): GitHub API authentication token
+        github (Github): PyGithub client instance
+        anthropic_client (Anthropic): Claude API client instance
+    """
     
     def __init__(self, github_token: str):
+        """Initialize the CodingAgent.
+
+        Args:
+            github_token (str): GitHub authentication token for API access
+            
+        Raises:
+            ValueError: If ANTHROPIC_API_KEY environment variable is not set
+        """
         self.github_token = github_token
         self.github = Github(github_token)
         
@@ -50,6 +68,26 @@ class CodingAgent:
         self.anthropic_client = anthropic.Anthropic(api_key=anthropic_token)
     
     async def process_repository(
+        self, 
+        repo_url: str,
+        prompt: str
+    ) -> AsyncGenerator[Dict[str, Any], None]:
+        """Process a GitHub repository by cloning it and applying AI-assisted changes.
+        
+        Args:
+            repo_url (str): URL of the GitHub repository to process
+            prompt (str): Natural language description of changes to make
+            
+        Yields:
+            Dict[str, Any]: Status update events during processing including:
+                - AI messages about progress
+                - Tool events for file reads/edits
+                - Error events if issues occur
+                - Completion event with PR URL when finished
+                
+        Raises:
+            Exception: If repository processing fails
+        """
         self, 
         repo_url: str, 
         prompt: str

@@ -26,7 +26,11 @@ web_app.add_middleware(
 
 @web_app.get("/healthz")
 async def healthz():
-    """Health check endpoint"""
+    """Health check endpoint to verify service is running.
+    
+    Returns:
+        dict: Service status with 'ok' status and service name
+    """
     return {"status": "ok", "service": "Backspace Coding Agent"}
 
 # Request model
@@ -36,6 +40,17 @@ class CodeRequest(BaseModel):
 
 @web_app.post("/code")
 async def create_code_changes(request: CodeRequest):
+    """Run the coding agent to process repository changes.
+    
+    Args:
+        request (CodeRequest): Contains repository URL and coding prompt
+        
+    Returns:
+        StreamingResponse: Server-sent events stream of agent progress
+        
+    Note:
+        Currently hardcoded to use a specific test repository URL
+    """
     """Run the agent and format output like test_endpoint.py does"""
     from agent import run_agent
     
